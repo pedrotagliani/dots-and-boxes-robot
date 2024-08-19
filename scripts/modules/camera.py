@@ -39,6 +39,7 @@ class myCamera():
     def release_camera(self):
         if self.cap.isOpened():
             self.cap.release()
+            cv2.destroyAllWindows()
     
     # If you have already obtained the frame and just need to display it
     @staticmethod
@@ -57,3 +58,5 @@ if __name__ == '__main__':
     print(cap1.width)
 
     myCamera.show_frame(frame1)
+
+    cap1.release_camera()
