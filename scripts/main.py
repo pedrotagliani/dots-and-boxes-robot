@@ -18,6 +18,10 @@ playerName = 'Gallardo'
 difficulty = 'hard'
 firstPlayer = 0 # Player begins
 
+# Obtain width and height of the video capture
+frameWidth = cap.width
+frameHeight = cap.height
+
 # Create a new game instance
 game = dnb_game.dnbGame(boardSize = boardSize, playerName = playerName, 
 						difficulty = difficulty, distanceBetweenDots = distanceBetweenDots, 
@@ -31,14 +35,16 @@ while not game.has_finished():
 
 	if frame is not None:
     
-		frame2, overlay = game.detect_board(frame)
+		framewithMarkers, frameOverlay, transformation1 = game.detect_board(frame)
 
+		if framewithMarkers is not None:
+			cv2.imshow('Frame with markers', framewithMarkers)
 
-		cv2.imshow('frame',frame2)
-		cv2.imshow('overlay', overlay)
+		if frameOverlay is not None:
+			cv2.imshow('Original frame with overlay', frameOverlay)
 
-		if cv2.waitKey(1) & 0xFF == ord('q'):
-			break
+	if cv2.waitKey(1) & 0xFF == ord('q'):
+		break
 
 
 

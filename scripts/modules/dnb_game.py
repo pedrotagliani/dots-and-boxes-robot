@@ -20,12 +20,21 @@ class dnbGame():
     # distanceBetweenDots (int) --> Distance in centimetre. For example: 3.6
     # markerSizeInCM (int) --> Size of the marker in centimetre. For example: 3.8
     # cameraMatrix and distCoeffs --> Default values obtained through calibration are specific to the Q-BOX camera
-    def __init__(self, boardSize, playerName, difficulty, distanceBetweenDots, markerSizeInCM, cameraMatrix = cameraMatrix, distCoeffs = distCoeffs, firstPlayer = 0):  
+    def __init__(self, boardSize, playerName, difficulty,
+                 distanceBetweenDots, markerSizeInCM, frameWidth, frameHeight,
+                 cameraMatrix = cameraMatrix,
+                 distCoeffs = distCoeffs, firstPlayer = 0):
+        
         # Logical configuration
         self.playerName = playerName
         self.difficulty = difficulty
         self.firstPlayer = firstPlayer
         self.players = [self.playerName, 'Robot']
+        self.boardDetected = False # If the board was detected --> self.boardDetected = True
+
+        # Frame variables
+        self.frameWidth = frameWidth
+        self.frameHeight = frameHeight
 
         # Board's configuration
         self.boardSize = boardSize
@@ -62,9 +71,10 @@ class dnbGame():
         # Make a copy of the original frame
         frameCopy = frame.copy()
 
-        # Overlay to draw the polygon
-        overlay = frame.copy()
-
+        # Initialize needed variables (Set as None at the beginning)
+        overlay = None
+        framewithOverlay = None
+        transformation1 = None
 
         # Detect ArUco markers in the video frame
         corners, ids = aruco.detect_ArUcos(frameCopy)
@@ -90,6 +100,9 @@ class dnbGame():
             # If the IDs 0, 1, 2 and 3 are being detected and no other IDs are interfering, then execute the if statement
             if (0 in ids) and (1 in ids) and (2 in ids) and (3 in ids) and len(ids) == 4: # This is done to avoid false detections (for example, [2,1,3,38])
                 
+                # Update the board detection variable
+                self.boardDetected = True
+
                 # Array to store the left corner from all the markers
                 markersLeftCorners = []
 
@@ -128,8 +141,8 @@ class dnbGame():
                     # I am interested in saving the pose of each marker. Later, I'll relate each one of them with every circle in the real matrix
                     markersPose.append([rvec,tvec])
 
-                # # Overlay to draw the polygon
-                # overlay = frame.copy()
+                # Overlay to draw the polygon
+                overlay = frame.copy()
 
                 # List to store the top left marker corner sorted by ID number
                 markersLeftCornersSorted = [None, None, None, None]
@@ -148,11 +161,27 @@ class dnbGame():
                 alpha = 0.4  # Transparency factor
                 beta = 1 - alpha # Transparency factor
                 gamma = 0 # Transparency factor
-                frame3 = cv2.addWeighted(frame, alpha, overlay, beta, gamma)
+                framewithOverlay = cv2.addWeighted(frameCopy, alpha, overlay, beta, gamma)
 
+                # Destination coordinates sorted by top left, top right, bottom left, bottom right:
+                ptsDestination = np.float32([[0,0],[self.frameWidth,0],[0,self.frameHeight],[self.frameWidth,self.frameHeight]])
 
+                # The source points will be static. In other words, they'll ve related with the same ArUco Markers
+                # It doesn't matter where the camera is placed as long as the markers are correctly detected
+                # It's important to keep in mind that the top left corner of the markers are already sorted by IDs in the array called leftMarkerCornersSorted
 
+                # Source coordinates sorted by top left, top right, bottom left, bottom right:
+                ptsSource = np.float32([markersLeftCornersSorted[0], markersLeftCornersSorted[3], markersLeftCornersSorted[1], markersLeftCornersSorted[2]])
+                # If you take a look at the image with the marker IDs displayed, it's easy to to find the correct order in ptsSource
 
+                # Obtain the transfomation matrix:
+                transformationMatrix = cv2.getPerspectiveTransform(ptsSource,ptsDestination)
+
+                # Apply the transformation matrix in the original frame
+                transformation1 = cv2.warpPerspective(frame.copy(),transformationMatrix,(self.frameWidth,self.frameHeight))
+
+                # # Display the transformed frame
+                # cv2.imshow('Juego',transformation1)
 
 
 
@@ -163,8 +192,7 @@ class dnbGame():
             markersnotFoundString = 'No se han encontrado marcadores'
             cv2.putText(frameCopy,markersnotFoundString,(20,20), cv2.FONT_HERSHEY_SIMPLEX, 0.6,(0,255,0),2)
 
-
-        return frameCopy, frame3
+        return frameCopy, framewithOverlay, transformation1
 
 
 
