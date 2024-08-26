@@ -13,7 +13,7 @@ import threading
 #############################################################################
 
 # Load the data from the pickle file
-with open('config/camera_config.pckl', 'rb') as file:
+with open('config/camera_config_480p.pckl', 'rb') as file:
 	loadedData = pickle.load(file)
 
 # Camera parameters obtained from calibration
@@ -649,7 +649,7 @@ while not game.is_finished():
 				# Apply the transformation matrix in the frame
 				transformation2 = cv2.warpPerspective(originalFrame2,transformationMatrix,(frameWidth,frameHeight))
 				
-				# The problem now is that since it is constantly detecting the ArUco markers (which can be very unstable depending on the ambient light), 
+			  	# The problem now is that since it is constantly detecting the ArUco markers (which can be very unstable depending on the ambient light), 
 				# the matrix of circles on the board appears to move… so if I want to identify a line there, there could be false detections.
 				# Therefore, what I could implement is to continue detecting the points on the board, but the matrix I will use to detect the lines will be an average of each of the points, 
 				# taking x matrices of points.
@@ -689,6 +689,32 @@ while not game.is_finished():
 
 					# Adapt the perspective of the points in averageTcpMatrix. This way we can use these points in the cropped frame where the whiteboard is isolated from the rest of the image
 					averageTcpMatrixTransformed = cv2.perspectiveTransform(averageTcpMatrix, transformationMatrix)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 					# The format of the detected lines has to be compatible with the dot and boxes game engine used

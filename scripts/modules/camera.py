@@ -5,7 +5,7 @@ class videoCaptureError(Exception):
     pass
 
 class myCamera():
-    def __init__(self, videoSource = 0):
+    def __init__(self, resolution, videoSource = 0):
 
         # Open the video source
         self.cap = cv2.VideoCapture(videoSource)
@@ -16,6 +16,14 @@ class myCamera():
         else:
             raise videoCaptureError('No se pudo abrir la cámara (fijarse si se conectó correctamente o probar otro valor para videoSource).')
         
+        # Establish the desired resolution
+        if resolution == '480p':
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        elif resolution == '1080p':
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+
         # Discard initial frames to allow the camera to adjust itself (particular problem with our camera)
         for _ in range(50):
             self.cap.read()
