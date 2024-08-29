@@ -1,10 +1,11 @@
 import cv2
+import pickle
 
 # Throw and error if the camera wasn't successfully opened
 class videoCaptureError(Exception):
     pass
 
-class myCamera():
+class MyCamera():
     def __init__(self, resolution, videoSource = 0):
 
         # Open the video source
@@ -16,21 +17,38 @@ class myCamera():
         else:
             raise videoCaptureError('No se pudo abrir la cámara (fijarse si se conectó correctamente o probar otro valor para videoSource).')
         
-        # Establish the desired resolution
+        # Establish the desired resolution and get the camera parameters
         if resolution == '480p':
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+            # Load the data from the pickle file
+            with open('config/camera_config_480p.pckl', 'rb') as file:
+                loadedData = pickle.load(file)
+
+            # Default values obtained through calibration are specific to the Q-BOX camera
+            self.cameraMatrix = loadedData[0]
+            self.distCoeffs = loadedData[1]
+
         elif resolution == '1080p':
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+
+            # Load the data from the pickle file
+            with open('config/camera_config_1080p.pckl', 'rb') as file:
+                loadedData = pickle.load(file)
+
+            # Default values obtained through calibration are specific to the Q-BOX camera
+            self.cameraMatrix = loadedData[0]
+            self.distCoeffs = loadedData[1]
 
         # Discard initial frames to allow the camera to adjust itself (particular problem with our camera)
         for _ in range(50):
             self.cap.read()
 
         # Get video width and height
-        self.width = self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-        self.height = self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        self.frameWidth = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.frameHeight = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     def get_frame(self):
         if self.cap.isOpened():
@@ -58,13 +76,13 @@ class myCamera():
 
 if __name__ == '__main__':
 
-    cap1 = myCamera(0)
+    cap1 = MyCamera('480p', 0)
 
     frame1 = cap1.get_frame()
 
-    print(cap1.height)
-    print(cap1.width)
+    print(cap1.frameHeight)
+    print(cap1.frameWidth)
 
-    myCamera.show_frame(frame1)
+    MyCamera.show_frame(frame1)
 
     cap1.release_camera()
