@@ -33,9 +33,9 @@ game = dnb_game.DnbGame(boardSize = boardSize, playerName = playerName, difficul
 # Continue the loop as long as the game isn't over
 while not game.has_finished():
 
-	game.detect_board()
+	boardWithDotsAverageAverage = game.detect_board()
 
-	if cv2.waitKey(1) & 0xFF == ord('q'):
-		break
+
+
 
 cap.release_camera()
