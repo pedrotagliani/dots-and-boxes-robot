@@ -60,6 +60,11 @@ class DnbGame():
         # self.arucoParams.minMarkerDistanceRate = 0.03
         self.arucoDetector = cv2.aruco.ArucoDetector(self.arucoDict, self.arucoParams)
 
+
+        # Matrices for storing the dnbpy convention
+        self.horizontalLinesMatrix, self.verticalLinesMatrix = utils.get_dnb_matrix_convention(self.boardNumRows, self.boardNumColumns, self.boardTotalLines)
+
+
     def has_finished(self):
         return self.game.is_finished() # return True or False
     
@@ -499,7 +504,7 @@ class DnbGame():
                             # Adapt the perspective of the points in averageTcpMatrix. This way we can use these points in the cropped frame where the whiteboard is isolated from the rest of the image
                             averageTcpMatrixTransformed = cv2.perspectiveTransform(averageTcpMatrix, transformationMatrix)
 
-                            self.boardDetected = True
+                            self.boardDetected = True # Update the detection status (average)
 
                 else:
                     # Display that no ArUco markers were detected
@@ -517,7 +522,7 @@ class DnbGame():
                     cv2.imshow('Board with dots average', cv2.resize(boardWithDotsAverageFrame, (640,480)))
 
                     if self.boardDetected == True:
-                        cv2.imshow('wewBoard with dots average average', cv2.resize(boardWithDotsAverageAverage, (640,480)))
+                        cv2.imshow('Board with dots average average', cv2.resize(boardWithDotsAverageAverage, (640,480)))
                     
                 # if cv2.waitKey(1) & 0xFF == ord('q'):
                 #     break
@@ -529,8 +534,158 @@ class DnbGame():
                 print('No se pudo leer un frame.')
                 # In progress...
 
-        return boardWithDotsAverageAverage
+        return averageTcpMatrixTransformed, boardFrame
 
+    def detect_lines(self, averageTcpMatrixTransformed, boardFrame):
+
+        # Get board state
+        boardState = self.game.get_board_state()
+
+        # Create the frame that will be used to draw the detected lines
+        detectedLinesFrame = boardFrame.copy()
+
+        # It's necessary to add padding to the frame give that, when creating the currentRectangle, its values might fall outside of the image boundaries if padding is not applied
+        # This issue can be easily observed in the top padding of the first row of lines
+
+        # Size of the margin in pixels
+        margin = 500
+
+        # Apply padding with a white background (255, 255, 255)
+        detectedLinesFrame = cv2.copyMakeBorder(detectedLinesFrame, top=margin, bottom=margin, left=margin, right=margin, borderType=cv2.BORDER_CONSTANT, value=[255, 255, 255])
+
+        # Since we've added padding to the frame, the points in averageTcpMatrixTransformed need to be updated according to the margin added
+        averageTcpMatrixTransformed += margin
+
+        # Make sure the whiteboard is being detected
+        if self.boardDetected == True:
+
+            # The format of the detected lines has to be compatible with the dot and boxes game engine used
+
+            # Now, I'll check each segment between the points to check if there is a line drawn
+
+            # With this boolean variable, I'll be able to determine if a line was detected (they have to update every time I check the whiteboard)
+            verticalLineDetected = False
+            horizontalLineDetected = False
+
+            # With this boolean variable, I'll be able to determine if a NEW line was detected (they have to update every time I check the whiteboard)
+            newVerticalLineDetected = False
+            newHorizontalLineDetected = False
+
+            # Check horizontal lines
+            for row in range(self.dotsHeight):
+
+                # Auxiliary variable 'lastDot': If it's the first dot in the row, 'lastDot' is set to None. Otherwise, 'lastDot' is set to the coordinates [x, y]
+                lastDot = [None, None]
+
+                # Define line's type (It could be vertical or horizontal)
+                lineType = 'horizontal'
+
+                for column in range(self.dotsWidth):
+                    # If it's the first row, do nothing
+                    if lastDot == [None, None]:
+                        lastDot = [averageTcpMatrixTransformed[row][column][0], averageTcpMatrixTransformed[row][column][1]]
+                    else:
+                        # Crop the image to get the particular segment between the two points
+                        currentRectangle, topLeftRect, bottomRightRect = utils.crop_image(lastDot, averageTcpMatrixTransformed[row][column], lineType, detectedLinesFrame, '1080p', self.boardNumRows, self.boardNumColumns)
+
+                        # Apply Otsu's automatic thresholding
+                        threshInv = utils.apply_thresholding(currentRectangle)
+
+                        # Detect if there is a line in the selected segment
+                        lineDetection = utils.detect_lines(threshInv)
+
+                        # Draw the rectangle
+                        # utils.draw_rectangle(topLeftRect, bottomRightRect, detectedLinesFrame)
+
+                        # Draw each detected line
+                        if lineDetection is not None:
+                            for i in range(0, len(lineDetection)):
+                                l = lineDetection[i][0]
+                                cv2.line(currentRectangle, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
+                                # CurrentRectangle is related with detectedLinesFrames
+
+                        # cv2.imshow('Thresholding', threshInv)
+                        # cv2.imshow('Horizontal line detection', currentRectangle)
+                        # cv2.waitKey(0)
+                        # cv2.destroyAllWindows()
+
+                        # Update the past point
+                        lastDot = [averageTcpMatrixTransformed[row][column][0], averageTcpMatrixTransformed[row][column][1]]
+
+                        # Get the dnbpy contention of the detected line
+                        if lineDetection is not None:
+                            horizontalLineDetected = True # A line was detected
+                            detectedHorizontalLineDnbpyConv = int(self.horizontalLinesMatrix[row][column-1])
+                            # print(f'{detectedHorizontalLineDnbpyConv} - {lineType}')
+                            # [column-1] because, in the first iteration of this loop, lastDot = [None, None]
+
+                            # Update the line detection status if necessary
+                            if boardState[detectedHorizontalLineDnbpyConv] == 0:
+                                print('Nueva línea detectada:', str(detectedHorizontalLineDnbpyConv))
+                                # linesDetectionStatus.append(detectedHorizontalLineDnbpyConv)
+                                # newHorizontalLineDetected = True # A NEW line was detected
+
+                
+            # Check vertical lines
+            for column in range(self.dotsWidth):
+
+                # Auxiliary variable 'lastDot': If it's the first dot in the row, 'lastDot' is set to None. Otherwise, 'lastDot' is set to the coordinates [x, y]
+                lastDot = [None, None]
+
+                # Define line's type (It could be vertical or horizontal)
+                lineType = 'vertical'
+
+                for row in range(self.dotsHeight):
+                    # If it's the first row, do nothing
+                    if lastDot == [None, None]:
+                        lastDot = [averageTcpMatrixTransformed[row][column][0], averageTcpMatrixTransformed[row][column][1]]
+                    else:
+                        # Crop the image to get the particular segment between the two points
+                        currentRectangle, topLeftRect, bottomRightRect = utils.crop_image(lastDot, averageTcpMatrixTransformed[row][column], lineType, detectedLinesFrame, '1080p', self.boardNumRows, self.boardNumColumns)
+                        
+                        # Apply Otsu's automatic thresholding
+                        threshInv = utils.apply_thresholding(currentRectangle)
+
+                        # Detect if there is a line in the selected segment
+                        lineDetection = utils.detect_lines(threshInv)
+
+                        # Draw the rectangle
+                        # utils.draw_rectangle(topLeftRect, bottomRightRect, detectedLinesFrame)
+
+                        # Draw each detected line
+                        if lineDetection is not None:
+                            for i in range(0, len(lineDetection)):
+                                l = lineDetection[i][0]
+                                cv2.line(currentRectangle, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
+                                # CurrentRectangle is related with detectedLinesFrames
+
+                        # cv2.imshow('Vertical line detection', currentRectangle)
+                        # cv2.imshow('Thresholding', threshInv)
+
+                        # cv2.waitKey(0)
+                        # cv2.destroyAllWindows()
+
+                        # Update the past point
+                        lastDot = [averageTcpMatrixTransformed[row][column][0], averageTcpMatrixTransformed[row][column][1]]
+                        
+                        # Get the dnbpy contention of the detected line
+                        if lineDetection is not None:
+                            verticalLineDetected = True # A line was detected
+                            detectedVerticalLineDnbpyConv = int(self.verticalLinesMatrix[row-1][column])
+                            # print(f'{detectedVerticalLineDnbpyConv} - {lineType}')
+                            # [row-1] because, in the first iteration of this loop, lastDot = [None, None]
+                            
+                            # Update the line detection status if necessary
+                            if boardState[detectedVerticalLineDnbpyConv] == 0:
+                                print('Nueva línea detectada:', str(detectedVerticalLineDnbpyConv))
+                                # linesDetectionStatus.append(detectedVerticalLineDnbpyConv)
+                                # newVerticalLineDetected = True # A NEW line was detected
+
+            # Display the complete frame
+            cv2.imshow('Detected lines frame', cv2.resize(detectedLinesFrame, (640,480)))
+
+            # Wait a short period to update the window
+            cv2.waitKey(1)
 
 
 

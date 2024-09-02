@@ -27,13 +27,17 @@ frameHeight = int(cap.frameHeight)
 
 # Create a new game instance
 game = dnb_game.DnbGame(boardSize = boardSize, playerName = playerName, difficulty = difficulty, 
-						distanceBetweenDots = distanceBetweenDots, markerSizeInCM = markerSizeInCM, 
-						camera = cap, firstPlayer = firstPlayer)
+                        distanceBetweenDots = distanceBetweenDots, markerSizeInCM = markerSizeInCM, 
+                  camera = cap, firstPlayer = firstPlayer)
 
 # Continue the loop as long as the game isn't over
 while not game.has_finished():
 
-	boardWithDotsAverageAverage = game.detect_board()
+    averageTcpMatrixTransformed, boardFrame = game.detect_board()
+
+    game.detect_lines(averageTcpMatrixTransformed, boardFrame)
+
+
 
 
 

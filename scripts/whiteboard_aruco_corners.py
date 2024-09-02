@@ -103,6 +103,7 @@ def crop_image(point1, point2, lineType):
 	# Crop the image using numpy slicing
 	# currentRectangle = transformation1[int(topLeftRectangle[1]):int(bottomRightRectangle[1]), int(topLeftRectangle[0]):int(bottomRightRectangle[0])].copy()
 	currentRectangle = transformation1[int(topLeftRectangle[1]):int(bottomRightRectangle[1]), int(topLeftRectangle[0]):int(bottomRightRectangle[0])]
+	# Numpy uses (row, col) notation instead. Hence ---> transformation1[row,col] = transformation[y,x]
 
 	# Return the cropped image
 	return currentRectangle, topLeftRectangle, bottomRightRectangle
