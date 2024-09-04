@@ -691,33 +691,6 @@ while not game.is_finished():
 					# Adapt the perspective of the points in averageTcpMatrix. This way we can use these points in the cropped frame where the whiteboard is isolated from the rest of the image
 					averageTcpMatrixTransformed = cv2.perspectiveTransform(averageTcpMatrix, transformationMatrix)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 					# The format of the detected lines has to be compatible with the dot and boxes game engine used
 
 					# When key 'p' is pressed nextStep == True (Note that I'm inside countSetOfTcpMatrix == maxSetOfTcpMatrix)
@@ -847,7 +820,21 @@ while not game.is_finished():
 						# Save the modified version of transformation1 (which is always updating), so we can show it below
 						# It's an image of the detection in the moment I press the 'p' key
 						transformation1Modified = transformation1.copy()
-				
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 					# Press the 'm' key to begin the game
 					# (Note that I'm still inside countSetOfTcpMatrix == maxSetpOfTcpMatrix)
 					if startGame == True and nextStep == True:

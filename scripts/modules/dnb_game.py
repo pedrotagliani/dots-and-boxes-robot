@@ -3,6 +3,7 @@ import dnbpy
 from modules import utils
 import pickle
 import numpy as np
+import keyboard
 
 class DnbGame():
     # boardSize (tuple) --> (dotsWidth, dotsHeight)
@@ -68,7 +69,7 @@ class DnbGame():
     def has_finished(self):
         return self.game.is_finished() # return True or False
     
-    def detect_board(self):
+    def detect_board(self, showFrames = True):
 
         # Variables to store the tcp matrices when the whiteboard is being detected
         setOfTcpointsMatrix = []
@@ -108,13 +109,13 @@ class DnbGame():
                 frameCopy4 = frame.copy()
 
                 # Convert to gray scale
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                gray = cv2.cvtColor(frameCopy, cv2.COLOR_BGR2GRAY)
 
                 # Detect ArUco markers in the video frame
                 corners, ids, rejected = self.arucoDetector.detectMarkers(gray)
 
                 # Draw ArUco markers detected
-                cv2.aruco.drawDetectedMarkers(frame, corners)
+                cv2.aruco.drawDetectedMarkers(frameCopy, corners)
 
                 # If at least one ArUco markers is detected, then execute the following code; otherwise (None cases) don't execute
                 if ids is not None:
@@ -511,24 +512,25 @@ class DnbGame():
                     markersnotFoundString = 'No se han encontrado marcadores'
                     cv2.putText(frameCopy,markersnotFoundString,(20,20), cv2.FONT_HERSHEY_SIMPLEX, 0.6,(0,255,0),2)
 
-                # Display windows
-                cv2.imshow('Frame with markers', cv2.resize(frameCopy, (640, 480)))
+                if showFrames == True:
+                    # Display windows
+                    cv2.imshow('Frame with markers', cv2.resize(frameCopy, (640, 480)))
 
-                if boardDetectedRightNow == True:
-                    cv2.imshow('Original frame with overlay', cv2.resize(frameWithOverlay, (640,480)))
-                    cv2.imshow('Game board', cv2.resize(boardFrame, (640,480)))
-                    cv2.imshow('Testing board points in each ArUco marker', cv2.resize(testMarkerstoPointsFrame, (640,480)))
-                    cv2.imshow('Board with dots', cv2.resize(boardWithDotsFrame, (640,480)))
-                    cv2.imshow('Board with dots average', cv2.resize(boardWithDotsAverageFrame, (640,480)))
+                    if boardDetectedRightNow == True:
+                        cv2.imshow('Original frame with overlay', cv2.resize(frameWithOverlay, (640,480)))
+                        cv2.imshow('Game board', cv2.resize(boardFrame, (640,480)))
+                        cv2.imshow('Testing board points in each ArUco marker', cv2.resize(testMarkerstoPointsFrame, (640,480)))
+                        cv2.imshow('Board with dots', cv2.resize(boardWithDotsFrame, (640,480)))
+                        cv2.imshow('Board with dots average', cv2.resize(boardWithDotsAverageFrame, (640,480)))
 
-                    if self.boardDetected == True:
-                        cv2.imshow('Board with dots average average', cv2.resize(boardWithDotsAverageAverage, (640,480)))
+                        if self.boardDetected == True:
+                            cv2.imshow('Board with dots average average', cv2.resize(boardWithDotsAverageAverage, (640,480)))
                     
-                # if cv2.waitKey(1) & 0xFF == ord('q'):
-                #     break
-                
-                # Wait a short period to update the window
-                cv2.waitKey(1)
+                    # if cv2.waitKey(1) & 0xFF == ord('q'):
+                    #     break
+                    
+                    # Wait a short period to update the window
+                    cv2.waitKey(1)
             
             else:
                 print('No se pudo leer un frame.')
@@ -536,7 +538,7 @@ class DnbGame():
 
         return averageTcpMatrixTransformed, boardFrame
 
-    def detect_lines(self, averageTcpMatrixTransformed, boardFrame):
+    def detect_lines(self, averageTcpMatrixTransformed, boardFrame, showFrames = True):
 
         # Get board state
         boardState = self.game.get_board_state()
@@ -556,20 +558,18 @@ class DnbGame():
         # Since we've added padding to the frame, the points in averageTcpMatrixTransformed need to be updated according to the margin added
         averageTcpMatrixTransformed += margin
 
+        # With this boolean variable, I'll be able to determine if a NEW line was detected
+        newLineDetected = False
+
+        # Create the list to store the detected lines with computer vision in dnbpy notation
+        detectedLinesList = []
+
         # Make sure the whiteboard is being detected
         if self.boardDetected == True:
 
             # The format of the detected lines has to be compatible with the dot and boxes game engine used
 
             # Now, I'll check each segment between the points to check if there is a line drawn
-
-            # With this boolean variable, I'll be able to determine if a line was detected (they have to update every time I check the whiteboard)
-            verticalLineDetected = False
-            horizontalLineDetected = False
-
-            # With this boolean variable, I'll be able to determine if a NEW line was detected (they have to update every time I check the whiteboard)
-            newVerticalLineDetected = False
-            newHorizontalLineDetected = False
 
             # Check horizontal lines
             for row in range(self.dotsHeight):
@@ -614,18 +614,16 @@ class DnbGame():
 
                         # Get the dnbpy contention of the detected line
                         if lineDetection is not None:
-                            horizontalLineDetected = True # A line was detected
                             detectedHorizontalLineDnbpyConv = int(self.horizontalLinesMatrix[row][column-1])
                             # print(f'{detectedHorizontalLineDnbpyConv} - {lineType}')
                             # [column-1] because, in the first iteration of this loop, lastDot = [None, None]
 
                             # Update the line detection status if necessary
                             if boardState[detectedHorizontalLineDnbpyConv] == 0:
-                                print('Nueva línea detectada:', str(detectedHorizontalLineDnbpyConv))
-                                # linesDetectionStatus.append(detectedHorizontalLineDnbpyConv)
-                                # newHorizontalLineDetected = True # A NEW line was detected
+                                # print('Nueva línea detectada:', str(detectedHorizontalLineDnbpyConv))
+                                detectedLinesList.append(detectedHorizontalLineDnbpyConv)
+                                newLineDetected = True # A NEW line was detected
 
-                
             # Check vertical lines
             for column in range(self.dotsWidth):
 
@@ -670,22 +668,122 @@ class DnbGame():
                         
                         # Get the dnbpy contention of the detected line
                         if lineDetection is not None:
-                            verticalLineDetected = True # A line was detected
                             detectedVerticalLineDnbpyConv = int(self.verticalLinesMatrix[row-1][column])
                             # print(f'{detectedVerticalLineDnbpyConv} - {lineType}')
                             # [row-1] because, in the first iteration of this loop, lastDot = [None, None]
                             
                             # Update the line detection status if necessary
                             if boardState[detectedVerticalLineDnbpyConv] == 0:
-                                print('Nueva línea detectada:', str(detectedVerticalLineDnbpyConv))
-                                # linesDetectionStatus.append(detectedVerticalLineDnbpyConv)
-                                # newVerticalLineDetected = True # A NEW line was detected
+                                # print('Nueva línea detectada:', str(detectedVerticalLineDnbpyConv))
+                                detectedLinesList.append(detectedVerticalLineDnbpyConv)
+                                newLineDetected = True # A NEW line was detected
 
-            # Display the complete frame
-            cv2.imshow('Detected lines frame', cv2.resize(detectedLinesFrame, (640,480)))
+            if showFrames == True:
+                # Display the complete frame
+                cv2.imshow('Detected lines frame', cv2.resize(detectedLinesFrame, (640,480)))
 
-            # Wait a short period to update the window
+                # Wait a short period to update the window
+                cv2.waitKey(1)
+        
+    
+        return detectedLinesList, newLineDetected
+
+    def check_light(self):
+
+        print('\nEs necesario chequear la iluminación. Si ves que los marcadores se detectan sin inconvenientes no tenés que hacer nada. De lo contrario vas a tener que solucionarlo.')
+        print('Si la detección de los marcadores es buena, apretá la letra "m". Además, asegurate de que no se modifique la iluminación a lo largo de la partida.')
+
+        # Boolean variable for loop control
+        runningLoop = True
+
+        # Stop loop event
+        def stop_loop(event):
+            
+            # https://stackoverflow.com/questions/1261875/what-does-nonlocal-do-in-python-3
+
+            nonlocal runningLoop # Allows modifying 'runningLoop' in the outer scope
+            runningLoop = False
+        
+        # Register the event with the 'm' key
+        keyboard.on_press_key("m", stop_loop)
+
+        while runningLoop == True:
+
+            # Obtain frame
+            frame = self.camera.get_frame()
+
+            if frame is not None:
+                
+                # Copy the frame
+                frameCopy = frame.copy()
+
+                # Convert to gray scale
+                gray = cv2.cvtColor(frameCopy, cv2.COLOR_BGR2GRAY)
+
+                # Detect ArUco markers in the video frame
+                corners, ids, rejected = self.arucoDetector.detectMarkers(gray)
+
+                # Draw ArUco markers detected
+                cv2.aruco.drawDetectedMarkers(frameCopy, corners)
+
+                # If at least one ArUco markers is detected, then execute the following code; otherwise (None cases) don't execute
+                if ids is not None:
+
+                    # print(len(corners)) # n
+                    # print(corners[0].shape) # (n,1,4,2) -> n is in the tuple layer (in this case, n = 0 --> corners[0].shape)
+                    # print(ids.shape) # (n,1)
+
+                    # Flatten the ArUco IDs and make it a list
+                    ids = ids.flatten().tolist()
+                    # print(ids.shape) # (n,)
+
+                    # Display how many ArUco markers are being detected
+                    markersFoundString = f'{len(ids)} marcadores encontrados.'
+                    cv2.putText(frameCopy,markersFoundString,(20,20), cv2.FONT_HERSHEY_SIMPLEX, 0.6,(0,255,0),2)
+            
+            cv2.imshow('Frame with markers', cv2.resize(frameCopy, (640, 480)))
             cv2.waitKey(1)
+        
+        # After typing "m"...
+        print('Bien, iluminación confirmada.')
+
+    def is_whiteboard_empty(self):
+
+        # This function only detects if a line was drawn before the game started. However, it won't detect any scribbles
+
+        # Get board state
+        boardState = self.game.get_board_state()
+
+        if sum(boardState) == 0:
+
+            while True:
+
+                print('\nChequeando pizarra...')
+                
+                # Detect the board
+                averageTcpMatrixTransformed, boardFrame = self.detect_board()
+
+                # Detect lines
+                detectedLinesList, newLineDetected = self.detect_lines(averageTcpMatrixTransformed = averageTcpMatrixTransformed, boardFrame = boardFrame)
+
+                if newLineDetected == False:
+                    print('¡Excelente, la pizarra está vacía!')
+                    print('¡El juego ya puede comenzar!')
+
+                    # The whiteboard is empty, so we can quit the loop
+                    break
+
+                else:
+                    print('Se detectaron líneas en la pizzarra. Borralas e ingresá la letra "r" cuando ya lo hayas hecho.')
+                    user_input2 = input('>> ')
+
+                    if user_input2 == 'r':
+                        print('Bien, volviendo a chequear la pizarra...')
+                    else:
+                        print('Ah, bueno, te hacés el vivo. Vuelvo a chequear la pizarra, me da igual si la borraste o no.')
+        
+        else:
+            print('Este método solo es útil al principio, no tiene sentido usarlo con el juego ya comenzado.')
 
 
 

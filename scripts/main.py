@@ -1,6 +1,7 @@
 # Import libraries
 from modules import camera, dnb_game
 import cv2
+import keyboard
 
 # Capture webcam
 videoSource = 0
@@ -25,21 +26,42 @@ frameHeight = int(cap.frameHeight)
 # print(frameWidth)
 # print(frameHeight)
 
-# Create a new game instance
-game = dnb_game.DnbGame(boardSize = boardSize, playerName = playerName, difficulty = difficulty, 
-                        distanceBetweenDots = distanceBetweenDots, markerSizeInCM = markerSizeInCM, 
-                  camera = cap, firstPlayer = firstPlayer)
+# Start the game
+print('\nPresioná "s" para comenzar el juego.')
+userInput = input('>> ')
 
-# Continue the loop as long as the game isn't over
-while not game.has_finished():
+if userInput == 's':
 
-    averageTcpMatrixTransformed, boardFrame = game.detect_board()
+    # The game has started...
 
-    game.detect_lines(averageTcpMatrixTransformed, boardFrame)
+    # Create a new game instance
+    game = dnb_game.DnbGame(boardSize = boardSize, playerName = playerName, difficulty = difficulty, 
+                            distanceBetweenDots = distanceBetweenDots, markerSizeInCM = markerSizeInCM, 
+                            camera = cap, firstPlayer = firstPlayer)
 
+    # Check the illumination (manual configuration)
+    game.check_light()
 
+    # Check if the board is empty
+    game.is_whiteboard_empty()
 
+    print('\n------------------------------------------')
+    print('Que comience el juego...')
 
+    # Continue the loop as long as the game isn't over
+    while not game.has_finished():
 
+        # Detect the board
+        averageTcpMatrixTransformed, boardFrame = game.detect_board()
+
+        # Detect lines
+        detectedLinesList, newLineDetected = game.detect_lines(averageTcpMatrixTransformed, boardFrame)
+
+        # print(detectedLinesList)
+        # print(newLineDetected)
+        # print('-------')
+    
+else:
+    print(f'Presionaste "{userInput}", pero para que el juego inicie tenés que apretar "s".')
 
 cap.release_camera()
