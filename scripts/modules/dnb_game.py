@@ -913,8 +913,31 @@ class DnbGame():
                             print(f'No se dibujó la línea en el casillero correcto ({detectedLinesList[-1]}). Bórrela de la pizarra.')
                     else:
                         print('No se detectó que el robot haya dibujado ninguna línea.')
+            
+            # Print the score in the terminal
+            self.show_score()
+        
+        # If the match has ended...
+        if self.has_finished() == True:
+            print('\----------------------------------------')
+            print('La partida terminó.\n')
 
+            # Get individual scores
+            scorePlayer = self.gameDnbpyLib.get_score(self.players[0])
+            scoreRobot = self.gameDnbpyLib.get_score(self.players[1])
 
+            print('Resultados:')
+            self.show_score()
+
+            if scorePlayer > scoreRobot:
+                print(f'¡Felicitaciones {self.players[0]}, eres el ganador!')
+            elif scoreRobot > scorePlayer:
+                print(f'Ganó el robot... La humanidad está perdida...')
+            elif scoreRobot == scorePlayer:
+                print('¡Es un empate!')
+
+    def show_score(self):
+        print(f'\n{self.players[0]}: {self.gameDnbpyLib.get_score(self.players[0])}, {self.players[1]}: {self.gameDnbpyLib.get_score(self.players[1])}')
 
 
 
