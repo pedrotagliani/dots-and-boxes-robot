@@ -14,7 +14,7 @@ distanceBetweenDots = 3.6 # Distance in centimetre
 markerSizeInCM = 3.8 # Size of the marker in centimetre
 
 # Game variables
-boardSize = (dotsWidth, dotsHeight)
+boardDotSize = (dotsWidth, dotsHeight)
 playerName = 'Gallardo'
 difficulty = 'hard'
 firstPlayer = 0 # Player begins
@@ -35,7 +35,7 @@ if userInput == 's':
     # The game has started...
 
     # Create a new game instance
-    game = dnb_game.DnbGame(boardSize = boardSize, playerName = playerName, difficulty = difficulty, 
+    game = dnb_game.DnbGame(boardDotSize = boardDotSize, playerName = playerName, difficulty = difficulty, 
                             distanceBetweenDots = distanceBetweenDots, markerSizeInCM = markerSizeInCM, 
                             camera = cap, firstPlayer = firstPlayer)
 
@@ -45,21 +45,21 @@ if userInput == 's':
     # Check if the board is empty
     game.is_whiteboard_empty()
 
-    print('\n------------------------------------------')
-    print('Que comience el juego...')
+    # Just play
+    game.play()
 
-    # Continue the loop as long as the game isn't over
-    while not game.has_finished():
+    # # Continue the loop as long as the game isn't over
+    # while not game.has_finished():
 
-        # Detect the board
-        averageTcpMatrixTransformed, boardFrame = game.detect_board()
+    #     # Detect the board
+    #     averageTcpMatrixTransformed, boardFrame = game.detect_board()
 
-        # Detect lines
-        detectedLinesList, newLineDetected = game.detect_lines(averageTcpMatrixTransformed, boardFrame)
+    #     # Detect lines
+    #     detectedLinesList, newLineDetected = game.detect_lines(averageTcpMatrixTransformed, boardFrame)
 
-        # print(detectedLinesList)
-        # print(newLineDetected)
-        # print('-------')
+    #     # print(detectedLinesList)
+    #     # print(newLineDetected)
+    #     # print('-------')
     
 else:
     print(f'Presionaste "{userInput}", pero para que el juego inicie tenés que apretar "s".')

@@ -6,14 +6,14 @@ import numpy as np
 import keyboard
 
 class DnbGame():
-    # boardSize (tuple) --> (dotsWidth, dotsHeight)
+    # boardDotSize (tuple) --> (dotsWidth, dotsHeight)
     # playerName (string) --> 'Pedro', for example
     # difficulty (string) --> 'easy', 'medium' or 'hard'
     # firstPlayer (int) --> 0 (player, default value) or 1 (robot)
     # distanceBetweenDots (int) --> Distance in centimetre. For example: 3.6
     # markerSizeInCM (int) --> Size of the marker in centimetre. For example: 3.8
     # camera (object) --> Instance of the custom myCamera class
-    def __init__(self, boardSize, playerName, difficulty,
+    def __init__(self, boardDotSize, playerName, difficulty,
                  distanceBetweenDots, markerSizeInCM, 
                  camera, firstPlayer = 0):
         
@@ -32,20 +32,21 @@ class DnbGame():
         self.distCoeffs = camera.distCoeffs
 
         # Board's configuration
-        self.boardSize = boardSize
-        self.dotsWidth = self.boardSize[0]
-        self.dotsHeight = self.boardSize[1]
+        self.boardDotSize = boardDotSize
+        self.dotsWidth = self.boardDotSize[0]
+        self.dotsHeight = self.boardDotSize[1]
         self.boardNumColumns = self.dotsWidth - 1
         self.boardNumRows = self.dotsHeight - 1
+        self.boardSize = (self.boardNumRows, self.boardNumColumns) # A board in the dnbpy library is described using the convention n x m, where n is the number of rows, and m is the number of columns
         self.boardTotalLines = self.dotsHeight*self.boardNumRows + self.dotsWidth*self.boardNumColumns # If 6x6 --> 60 lines
         self.distanceBetweenDots = distanceBetweenDots
         self.markerSizeInCM = markerSizeInCM # Size of the marker in centimetre
 
         # Create a new game instances
-        self.game = dnbpy.Game((self.boardNumRows, self.boardNumColumns), self.players)
+        self.gameDnbpyLib = dnbpy.Game(self.boardSize, self.players)
 
         # Change the current player (default value is 0)
-        self.game._current_player = self.firstPlayer
+        self.gameDnbpyLib._current_player = self.firstPlayer
 
         # Select the AI according to the difficulty
         if self.difficulty == 'easy':
@@ -53,7 +54,7 @@ class DnbGame():
         elif self.difficulty == 'medium':
             self.aiAgent = dnbpy.Level2HeuristicPolicy(self.boardSize)
         elif self.difficulty == 'hard':
-            self.aiAgent = dnbpy.Level3MinimaxPolicy(boardSize, depth=2, update_alpha=True)
+            self.aiAgent = dnbpy.Level3MinimaxPolicy(self.boardSize, depth=2, update_alpha=True)
         
         # Define the ArUco detector
         self.arucoDict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
@@ -65,9 +66,29 @@ class DnbGame():
         # Matrices for storing the dnbpy convention
         self.horizontalLinesMatrix, self.verticalLinesMatrix = utils.get_dnb_matrix_convention(self.boardNumRows, self.boardNumColumns, self.boardTotalLines)
 
+        # Matrices for storing the pair of points that are involved in the creation of a particular line
+        self.pointsHorizontalLinesMatrix, self.pointsVerticalLinesMatrix = utils.dnb_conv_to_matrix_points(self.boardNumRows, self.boardNumColumns, self.dotsHeight, 
+                                                                                                           self.dotsWidth)
+        
+        # Create a matrix to store all distances from the base frame of the robotic arm to the points on the whiteboard
+        # First, take into account the distance from the robot base frame to the first point on the whiteboard (consider the orientation of the base frame's axis)
+        # If this is not clear, refer to the image 'v2_Robot to circles.png'
+
+        xbp1 = 19 # CHECK
+        ybp1 = -8.2 # CHECK
+        zbp = 0.2 # CHECK
+
+        self.tbpointsMatrix = utils.get_distance_matrix_from_robot_to_points(xbp1, ybp1, zbp, self.dotsHeight, self.dotsWidth, self.distanceBetweenDots)
+
+        # The width of the wood is 21.4cm
+        # The length of the board (excluding the black frames) is 33cm.
+        # To center it, there is 5.8cm on each side.
+
+        # I would say that the distances, as such, are not the real ones. This is due to the accumulated error 
+        # (the angles that the servos are asked to turn have a certain error, and the distances of the links as well).
 
     def has_finished(self):
-        return self.game.is_finished() # return True or False
+        return self.gameDnbpyLib.is_finished() # return True or False
     
     def detect_board(self, showFrames = True):
 
@@ -541,7 +562,7 @@ class DnbGame():
     def detect_lines(self, averageTcpMatrixTransformed, boardFrame, showFrames = True):
 
         # Get board state
-        boardState = self.game.get_board_state()
+        boardState = self.gameDnbpyLib.get_board_state()
 
         # Create the frame that will be used to draw the detected lines
         detectedLinesFrame = boardFrame.copy()
@@ -752,7 +773,7 @@ class DnbGame():
         # This function only detects if a line was drawn before the game started. However, it won't detect any scribbles
 
         # Get board state
-        boardState = self.game.get_board_state()
+        boardState = self.gameDnbpyLib.get_board_state()
 
         if sum(boardState) == 0:
 
@@ -784,6 +805,126 @@ class DnbGame():
         
         else:
             print('Este método solo es útil al principio, no tiene sentido usarlo con el juego ya comenzado.')
+
+    def play(self):
+
+        print('\n------------------------------------------')
+        print('Que comience el juego...')
+
+        # Continue the loop as long as the game isn't over
+        while not self.has_finished():
+
+            # Get the current player
+            currentPlayer = self.gameDnbpyLib.get_current_player()
+
+            # The detection will be one line at a time, at least in these early versions of the project
+
+            # This variable will be used in a while loop that keeps iterating until a line is drawn. The user will manually confirm when the line is drawn
+            runningLoop = True
+
+            # If the player makes the move...
+            if currentPlayer == self.players[0]:
+                print(f'\nTurno de {currentPlayer}.')
+                
+                # Continue running this while loop until a line drawn by the player is detected
+                while runningLoop == True:
+
+                    print('Cuando termines de dibujar la línea, apretá "m".')
+                    keyboard.wait('m')
+
+                    # Detect the board
+                    averageTcpMatrixTransformed, boardFrame = self.detect_board()
+
+                    # Detect lines
+                    detectedLinesList, newLineDetected = self.detect_lines(averageTcpMatrixTransformed, boardFrame)
+
+                    # If a new line was detected...
+                    if newLineDetected == True:
+
+                        # Update the loop control variable to manage loop execution
+                        runningLoop = False
+
+                        # A new line was detected, so it has to be the last one in the list
+                        playerMove = detectedLinesList[-1]
+
+                        # Here is an issue to consider: If I drew three lines and then pressed ‘m,’, only the last one will be taken into account. 
+                        # But of course, this breaks the entire logic because the list would have two other lines that are supposedly already drawn, but in reality, they are not
+                        # So it would be: I draw a line, press ‘p’, draw a line, press ‘p’, and so on
+
+                        # Make the move in the dnb engine
+                        self.gameDnbpyLib.select_edge(playerMove, currentPlayer)
+
+                        print(f'Movimiento de {self.players[0]}: {playerMove}.')
+
+                    else:
+                        print('No se detectó que hayas dibujado ninguna línea.')
+
+            # If the robot makes the move...
+            elif currentPlayer == self.players[1]:
+                print(f'\nTurno del robot.')
+
+                # Get the move for the robot
+                robotMove = self.aiAgent.select_edge(self.gameDnbpyLib.get_board_state(), self.gameDnbpyLib.get_score(currentPlayer), self.gameDnbpyLib.get_score(self.players[0]))
+                print(f'{robotMove} (Auxiliar)')
+
+                # I need to know whether it's a vertical or horizontal line
+                # Based on the robot's movement, I have to find between which two points the line should be drawn
+                pointsIndexforLine, lineType2 = utils.dnb_conv_to_points_index(robotMove, self.horizontalLinesMatrix, self.verticalLinesMatrix, 
+                                                                               self.pointsHorizontalLinesMatrix, self.pointsVerticalLinesMatrix)
+                # Indices of both points, which are related to the 6x6 distance matrix
+
+                # Use those indices in the 6x6 distance matrix from the base frame of the robot to the circles on the whiteboard to get the initial and final points of the line
+                initialPoint = self.tbpointsMatrix[int(pointsIndexforLine[0][0][0])][int(pointsIndexforLine[0][0][1])]
+                finalPoint = self.tbpointsMatrix[int(pointsIndexforLine[0][1][0])][int(pointsIndexforLine[0][1][1])]
+
+                print(f'Punto inicial: {initialPoint}')
+                print(f'Punto final: {finalPoint}')
+                print(lineType2)
+
+                # # Interpolate the line between the initial and final point
+                # interpolationPointsArray = simple_interpolator(initialPoint, finalPoint, lineType2) # Returns a numpy array with a shape of (numInterpolatedPoints, 3)
+
+                # # Send the instructions to the motors via serial communication with the ESP32
+                # thread_serial_communication(interpolationPointsArray)
+
+                # Continue running this while loop until a line drawn by the robot is detected and it must be the correct one
+                while runningLoop == True:
+                    print('Cuando el robot haya terminado de dibujar la línea, apretá "m".')
+                    keyboard.wait('m')
+
+                    # Detect the board
+                    averageTcpMatrixTransformed, boardFrame = self.detect_board()
+
+                    # Detect lines
+                    detectedLinesList, newLineDetected = self.detect_lines(averageTcpMatrixTransformed, boardFrame)
+
+                    if newLineDetected == True:
+                        if detectedLinesList[-1] == robotMove:
+
+                            # Update the loop control variable to manage loop execution
+                            runningLoop = False
+
+                            # Make the move in the dnb engine
+                            self.gameDnbpyLib.select_edge(robotMove, currentPlayer)
+
+                            print(f'Movimiento del {self.players[1].lower()}: {robotMove}.')
+
+                        else:
+                            print(f'No se dibujó la línea en el casillero correcto ({detectedLinesList[-1]}). Bórrela de la pizarra.')
+                    else:
+                        print('No se detectó que el robot haya dibujado ninguna línea.')
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

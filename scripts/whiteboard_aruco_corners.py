@@ -259,8 +259,8 @@ horizontalLinesMatrix, verticalLinesMatrix = get_dnb_matrix_convention(boardNumR
 # Using the dnb convention, determine the points for drawing each vertical and horizontal line and store them in two matrices
 def dnb_conv_to_matrix_points(boardRows, boardColumns):
 	# Matrices for storing the points
-	pointsOfHorizontalLines = np.zeros(shape=(boardRows + 1, boardColumns,2,2)) # (6,5)
-	pointsOfVerticalLines = np.zeros(shape=(boardRows, boardColumns + 1,2,2)) # (5,6)
+	pointsOfHorizontalLines = np.zeros(shape=(boardRows + 1, boardColumns,2,2)) # (6,5,2,2)
+	pointsOfVerticalLines = np.zeros(shape=(boardRows, boardColumns + 1,2,2)) # (5,6,2,2)
 
 	# For horizontal lines
 	for row in range(dotsHeight):
@@ -820,20 +820,6 @@ while not game.is_finished():
 						# Save the modified version of transformation1 (which is always updating), so we can show it below
 						# It's an image of the detection in the moment I press the 'p' key
 						transformation1Modified = transformation1.copy()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 					# Press the 'm' key to begin the game
 					# (Note that I'm still inside countSetOfTcpMatrix == maxSetpOfTcpMatrix)

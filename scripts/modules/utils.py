@@ -52,8 +52,81 @@ def get_dnb_matrix_convention(boardRows, boardColumns, totalLines):
     # Return the filled arrays
     return horizontalLines, verticalLines
 
+# Using the dnb convention, determine the points for drawing each vertical and horizontal line and store them in two matrices
+# Each point returned by this function corresponds to the indices of the tbpointsMatrix matrix.
+# For instance, pointsOfHorizontalLines[0,0] = array([[0,0],[0,1]]) corresponds to the indices of the initial and final points of the first horizontal line in the first row
+# Using these points, I can obtain the distance in cm from the base of the robot frame to those points using the tbpointsMatrix matrix
+def dnb_conv_to_matrix_points(boardRows, boardColumns, dotsHeight, dotsWidth):
+    # Matrices for storing the points
+    pointsOfHorizontalLines = np.zeros(shape=(boardRows + 1, boardColumns,2,2)) # (6,5,2,2)
+    pointsOfVerticalLines = np.zeros(shape=(boardRows, boardColumns + 1,2,2)) # (5,6,2,2)
 
+    # For horizontal lines
+    for row in range(dotsHeight):
 
+        # Auxiliary variable 'lastDot': If it's the first dot in the row, 'lastDot' is set to None. Otherwise, 'lastDot' is set to the coordinates [row, column]
+        lastDot = [None, None]
+
+        for column in range(dotsWidth):
+            # If it's the first row, do nothing
+            if lastDot == [None, None]:
+                lastDot = [row,column]
+            else:
+                # Initially, [row, column] = [0,0] and lastDot = [None,None], so it is updated to lastDot = [0,0].
+                # In the next iteration, when lastDot = [0,0] (not equal to [None, None]) and [row, column] = [0,1], this line should be stored in pointsOfHorizontalLines[0,0] because it represents the first line.
+                # Therefore, we can generalize this to pointsOfHorizontalLines[row, column-1].
+
+                pointsOfHorizontalLines[row,column-1] = np.array([np.array(lastDot),np.array([row,column])])
+
+                # Update the past point
+                lastDot = [row,column]
+
+    # For vertical lines
+    for column in range(dotsWidth):
+
+        # Auxiliary variable 'lastDot': If it's the first dot in the row, 'lastDot' is set to None. Otherwise, 'lastDot' is set to the coordinates [row, column]
+        lastDot = [None, None]
+
+        for row in range(dotsHeight):
+            # If it's the first row, do nothing
+            if lastDot == [None, None]:
+                lastDot = [row,column]
+            else:
+                # Initially, [row, column] = [0,0] and lastDot = [None,None], so it is updated to lastDot = [0,0].
+                # In the next iteration, when lastDot = [0,0] (not equal to [None, None]) and [row, column] = [1,0], this line should be stored in pointsOfHorizontalLines[0,0] because it represents the first line.
+                # Therefore, we can generalize this to pointsOfHorizontalLines[row-1, column].
+
+                pointsOfVerticalLines[row-1,column] = np.array([np.array(lastDot),np.array([row,column])])
+
+                # Update the past point
+                lastDot = [row,column]
+
+    return pointsOfHorizontalLines, pointsOfVerticalLines
+
+# From the robot movement in dnb convention, determine between which two points the line should be drawn
+def dnb_conv_to_points_index(robotMovement, horizontalLinesMatrix, verticalLinesMatrix, pointsHorizontalLinesMatrix, pointsVerticalLinesMatrix):
+    # Determine if the robot movement is inside of the matrix for horizontal or vertical lines, which are also in the dnb convention
+    if robotMovement in horizontalLinesMatrix:
+        # Retrieve the index of a specific value stored in the array
+        index = np.where(horizontalLinesMatrix == robotMovement)
+
+        # pointsHorizontalLinesMatrix and horizontalLinesMatrix represent the same lines, so the indices in both matrices correspond to the same lines
+        pointsIndex = pointsHorizontalLinesMatrix[index[0],index[1]]
+
+        line = 'Horizontal'
+
+    elif robotMovement in verticalLinesMatrix:
+        # Retrieve the index of a specific value stored in the array
+        index = np.where(verticalLinesMatrix == robotMovement)
+
+        # pointsVerticalLinesMatrix and VerticalLinesMatrix represent the same lines, so the indices in both matrices correspond to the same lines
+        pointsIndex = pointsVerticalLinesMatrix[index[0],index[1]]
+
+        line = 'Vertical'
+
+    # Return the indeces of botch points that are used to draw the line
+    return pointsIndex, line
+    # These point indices correspond to the 6x6 distance matrix from the base frame of the robot to each dot on the whiteboard
 
 ##############################################################################################################
 ########################################## Line detection functions ##########################################
@@ -171,3 +244,36 @@ def draw_rectangle(topLeftRectangle, bottomRightRectangle, frame):
     cv2.rectangle(frame, (int(topLeftRectangle[0]), int(topLeftRectangle[1])), (int(bottomRightRectangle[0]), int(bottomRightRectangle[1])), (30, 0, 0), 1)
     # Drawing the rectangle in the frame doesn't have to be done before detecting the lines
 
+#################################################################################################################################
+################### Matrix for storing all the distances from the robotic arm to the points on the whiteboard ###################
+#################################################################################################################################
+
+def get_distance_matrix_from_robot_to_points(xbp1, ybp1, zbp, dotsHeight, dotsWidth, distanceBetweenDots):
+    # Matrix for storing the translation vectors from the base frame of the robot to the points on the whiteboard
+    tbpointsMatrix = np.zeros((dotsHeight,dotsWidth,3), dtype=np.float32)
+
+    # Auxiliar variables
+    xAux2 = 0
+    yAux2 = 0
+
+    # Let's iterate over the 6x6 matrix
+    # The location of the translation vectors from the base frame of the robot to each circle on the whiteboard is calculated using the first tbp1 as reference
+    for row in range(dotsHeight):
+
+        for column in range(dotsWidth):
+
+            # According to the base reference frame of the robot, the points that share a row will have the same value in x and different values in y (considering the 3.6cm separation between them)
+            # If you don't get it, check the image v2_Robot to circles.png
+
+            tbpointsMatrix[row,column] = np.array([xbp1 + xAux2, ybp1 + yAux2, zbp])
+
+            # Actualize the column value
+            yAux2 += distanceBetweenDots
+
+        # Actualize the row value
+        xAux2 += distanceBetweenDots
+
+        yAux2 = 0
+    xAux2 = 0
+    
+    return tbpointsMatrix
