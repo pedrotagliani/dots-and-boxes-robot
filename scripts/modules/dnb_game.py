@@ -62,13 +62,11 @@ class DnbGame():
         # self.arucoParams.minMarkerDistanceRate = 0.03
         self.arucoDetector = cv2.aruco.ArucoDetector(self.arucoDict, self.arucoParams)
 
-
         # Matrices for storing the dnbpy convention
         self.horizontalLinesMatrix, self.verticalLinesMatrix = utils.get_dnb_matrix_convention(self.boardNumRows, self.boardNumColumns, self.boardTotalLines)
 
         # Matrices for storing the pair of points that are involved in the creation of a particular line
-        self.pointsHorizontalLinesMatrix, self.pointsVerticalLinesMatrix = utils.dnb_conv_to_matrix_points(self.boardNumRows, self.boardNumColumns, self.dotsHeight, 
-                                                                                                           self.dotsWidth)
+        self.pointsHorizontalLinesMatrix, self.pointsVerticalLinesMatrix = utils.dnb_conv_to_matrix_points(self.boardNumRows, self.boardNumColumns, self.dotsHeight, self.dotsWidth)
         
         # Create a matrix to store all distances from the base frame of the robotic arm to the points on the whiteboard
         # First, take into account the distance from the robot base frame to the first point on the whiteboard (consider the orientation of the base frame's axis)
