@@ -225,4 +225,7 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# Auxiliar files
+Practica_trayectorias.ipynb
+
 # End of https://www.toptal.com/developers/gitignore/api/python,platformio,windows,visualstudiocode
