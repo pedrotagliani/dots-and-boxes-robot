@@ -84,7 +84,8 @@
 void tca_select(uint8_t channel);
 int read_raw_angle(uint8_t encoderChannel);
 float convert_to_degrees(int rawAngle);
-void checkMagnetPresence(uint8_t encoderChannel);
+void check_magnet_presence(uint8_t encoderChannel);
+float read_deg_angle(uint8_t encoderChannel);
 
 // Create the instances of the ServoEasing class
 ServoEasing servoGripper(PCA9685_DEFAULT_ADDRESS);
@@ -110,8 +111,6 @@ AccelStepper stepper = AccelStepper(AccelStepper::DRIVER, STEP_PIN, DIR_PIN);
 
 
 
-
-
 void setup() {
     Serial.begin(115200);
     Wire.begin();  // Initialize I2C communication
@@ -130,23 +129,29 @@ void setup() {
     digitalWrite(DIR_ENCODER_SHOULDER, LOW);
     digitalWrite(DIR_ENCODER_BASE, HIGH);
 
-    // checkMagnetPresence(ENCODER_SHOULDER_CHANNEL);
+    // check_magnet_presence(ENCODER_SHOULDER_CHANNEL);
 
     tca_select(PCA9685_CHANNEL);  // Select channel 0 on TCA9548A
     // checkI2CConnection(PCA9685_DEFAULT_ADDRESS, &Serial);
 
+    // Home position
+    int baseHomeDeg = 0;
+    int shoulderHomeDeg = 80;
+    int elbowHomeDeg = 0;
+    int gripperHomeDeg = 120;
+
     // attach (int aPin, int aInitialDegreeOrMicrosecond, int aMicrosecondsForServoLowDegree, int aMicrosecondsForServoHighDegree, int aServoLowDegree, int aServoHighDegree)
-    // servoGripper.attach(SERVO_GRIPPER, 45, SERVO_GRIPPER_MIN, SERVO_GRIPPER_MAX, 0, 180);
-    // servoElbow.attach(SERVO_ELBOW, 0, SERVO_ELBOW_MIN, SERVO_ELBOW_MAX, 0, 180);
-    // servoShoulder.attach(SERVO_SHOULDER, 50, SERVO_SHOULDER_MIN, SERVO_SHOULDER_MAX, 0, 180);
+    servoGripper.attach(SERVO_GRIPPER, gripperHomeDeg, SERVO_GRIPPER_MIN, SERVO_GRIPPER_MAX, 0, 180);
+    servoElbow.attach(SERVO_ELBOW, elbowHomeDeg, SERVO_ELBOW_MIN, SERVO_ELBOW_MAX, 0, 180);
+    servoShoulder.attach(SERVO_SHOULDER, shoulderHomeDeg, SERVO_SHOULDER_MIN, SERVO_SHOULDER_MAX, 0, 180);
 
     // attach (int aPin, int aMicrosecondsForServoLowDegree, int aMicrosecondsForServoHighDegree, int aServoLowDegree, int aServoHighDegree)
-    servoGripper.attach(SERVO_GRIPPER, SERVO_GRIPPER_MIN, SERVO_GRIPPER_MAX, 0, 180);
-    servoElbow.attach(SERVO_ELBOW, SERVO_ELBOW_MIN, SERVO_ELBOW_MAX, 0, 180);
-    servoShoulder.attach(SERVO_SHOULDER, SERVO_SHOULDER_MIN, SERVO_SHOULDER_MAX, 0, 180);
+    // servoGripper.attach(SERVO_GRIPPER, SERVO_GRIPPER_MIN, SERVO_GRIPPER_MAX, 0, 180);
+    // servoElbow.attach(SERVO_ELBOW, SERVO_ELBOW_MIN, SERVO_ELBOW_MAX, 0, 180);
+    // servoShoulder.attach(SERVO_SHOULDER, SERVO_SHOULDER_MIN, SERVO_SHOULDER_MAX, 0, 180);
 
     // Wait for servos to reach start position
-    delay(2000);
+    delay(4000);
 
     // Set the maximum speed of the stepper
     stepper.setMaxSpeed(1000.0);
@@ -177,16 +182,46 @@ void setup() {
     }
 
     // Once the switch closes, stop the motor and mark the current position as 0°
-    stepper.setCurrentPosition(0); // Set the current position as 0°
+    stepper.setCurrentPosition(baseHomeDeg); // Set the current position as 0°
+
+    // Once the robot is positioned at the home location, adjust the encoder values to align with the robot's defined rotation axes
+    // The rotation direction has already been set, so it matches in both the encoders and the motors
+
+    // Initial lecture from encoders at home position
+    int initialBaseEncoderRawValue = read_raw_angle(ENCODER_BASE_CHANNEL);
+    float initialBaseEncoderDegValue = convert_to_degrees(initialBaseEncoderRawValue);
+
+    int initialShoulderEncoderRawValue = read_raw_angle(ENCODER_SHOULDER_CHANNEL);
+    float initialShoulderEncoderDegValue = convert_to_degrees(initialShoulderEncoderRawValue);
+
+    int initialElbowEncoderRawValue = read_raw_angle(ENCODER_ELBOW_CHANNEL);
+    float initialElbowEncoderDegValue = convert_to_degrees(initialElbowEncoderRawValue);
+
+    int initialGripperEncoderRawValue = read_raw_angle(ENCODER_GRIPPER_CHANNEL);
+    float initialGripperEncoderDegValue = convert_to_degrees(initialGripperEncoderRawValue);
+
+    // theta_encoder_adjusted = theta_encoder - offset
+
+    // Calulate each offset value
+    float offsetValueBase = initialBaseEncoderDegValue - baseHomeDeg;
+    float offsetValueShoulder = initialShoulderEncoderDegValue - shoulderHomeDeg;
+    float offsetValueElbow = initialElbowEncoderDegValue - elbowHomeDeg;
+    float offsetValueGripper = initialGripperEncoderDegValue - gripperHomeDeg;
+
+    // Check if the encoder values have been adjusted correctly
+    float angBaseAdjusted = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
+    float angShoulderAdjusted = read_deg_angle(ENCODER_SHOULDER_CHANNEL) - offsetValueShoulder;
+    float angElbowAdjusted = read_deg_angle(ENCODER_ELBOW_CHANNEL) - offsetValueElbow;
+    float angGripperAdjusted = read_deg_angle(ENCODER_GRIPPER_CHANNEL) - offsetValueGripper;
+
+    Serial.println("q1: " + String(angBaseAdjusted,2));
+    Serial.println("q2: " + String(angShoulderAdjusted,2));
+    Serial.println("q3: " + String(angElbowAdjusted,2));
+    Serial.println("q4: " + String(angGripperAdjusted,2));
 
     Serial.println("HOME");
     
 }
-
-
-
-
-
 
 
 
@@ -199,7 +234,7 @@ void loop() {
     // int rawAng1 = read_raw_angle(ENCODER_SHOULDER_CHANNEL);
     // float ang1 = convert_to_degrees(rawAng1);
     // Serial.println(ang1);
-    // checkMagnetPresence(ENCODER_SHOULDER_CHANNEL);
+    // check_magnet_presence(ENCODER_SHOULDER_CHANNEL);
     // delay(500);
 
     // servoGripper.setEasingType(EASE_SINE_IN_OUT);
@@ -234,8 +269,6 @@ void loop() {
 
 
 }
-
-
 
 
 
@@ -309,7 +342,49 @@ float convert_to_degrees(int rawAngle) {
     return rawAngle * scalingFactor;
 }
 
-void checkMagnetPresence(uint8_t encoderChannel)
+float read_deg_angle(uint8_t encoderChannel) { //  uint8_t ----> One-byte unsigned integer that can store values from 0 to 255
+    uint8_t lowbyte; // Raw angle bits 7:0 (8 bits)
+    uint8_t highbyte; // Raw angle bits 11:8 (4 bits)
+    int rawAngle; // Final raw angle (12 bits)
+
+    // Select the correct channel on the TCA9548A
+    tca_select(encoderChannel);
+
+    // Read low byte (bits 7:0)
+    Wire.beginTransmission(AS5600_ADDRESS); // Connect to the sensor
+    Wire.write(0x0D); // Figure 21 - register map: Specify register 0x0D (RAW ANGLE - lower 8 bits 7:0)
+    Wire.endTransmission(); // End transmission
+    Wire.requestFrom(AS5600_ADDRESS, 1); // Request 1 byte of data from the encoder
+
+    while (Wire.available() == 0);  // Wait until data is available to read 
+                                    // Wire.available() returns the number of bytes in the buffer; it will be 0 until the data arrives
+    lowbyte = Wire.read(); // Read the data byte, which is the lower 8 bits of RAW ANGLE
+
+    // Read high byte (bits 11:8)
+    Wire.beginTransmission(AS5600_ADDRESS);
+    Wire.write(0x0C); // Figure 21 - register map: Specify register 0x0C (RAW ANGLE - upper 4 bits 11:8)
+    Wire.endTransmission();
+    Wire.requestFrom(AS5600_ADDRESS, 1);
+
+    while (Wire.available() == 0);  // Wait until data is available
+    highbyte = Wire.read(); // Read the data byte, which contains the upper 4 bits of RAW ANGLE
+
+    // Combine high and low bytes to form the 12-bit raw angle
+    // A 12-bit value has 2^12 = 4096 possible values, ranging from 0 to 4095
+    rawAngle = (highbyte << 8) | lowbyte;
+
+    // For example, if highbyte was originally 0000 0111 (binary for 7), shifting it left by 8 bits gives 0000 0111 0000 0000
+    // If highbyte (after shifting) is 0000 0111 0000 0000 and lowbyte is 0000 0000 1111 1111, then rawAngle becomes 0000 0111 1111 1111, representing the 12-bit binary value
+    // In this case, rawAngle will hold the decimal value 2047 (0000 0111 1111 1111)
+
+    // 360° is divided into 4096 equal parts (the encoder operates with a 12-bit resolution)
+    float scalingFactor = 360.0/4096.0;
+
+    // Multiplying the raw angle by the scaling factor gives the angle in degrees
+    return rawAngle * scalingFactor;
+}
+
+void check_magnet_presence(uint8_t encoderChannel)
 {  
     uint8_t magnetStatus;
 
@@ -346,5 +421,4 @@ void checkMagnetPresence(uint8_t encoderChannel)
     }else if(magnetStatus & AS5600_MAGNET_LOW){
         Serial.println("Magnet too weak (ML).");
     }
-
 }
