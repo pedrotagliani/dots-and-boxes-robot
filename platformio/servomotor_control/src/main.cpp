@@ -9,14 +9,30 @@
 //#define PCA9685_ACTUAL_CLOCK_FREQUENCY 26000000L // Change it, if your PCA9685 has another than the default 25 MHz internal clock
 //#define USE_SOFT_I2C_MASTER           // Saves 1756 bytes program memory and 218 bytes RAM compared with Arduino Wire
 // #define USE_SERVO_LIB                 // If USE_PCA9685_SERVO_EXPANDER is defined, Activating this enables force additional using of regular servo library
-#define PROVIDE_ONLY_LINEAR_MOVEMENT  // Activating this disables all but LINEAR movement. Saves up to 1540 bytes program memory
-#define DISABLE_COMPLEX_FUNCTIONS     // Activating this disables the SINE, CIRCULAR, BACK, ELASTIC, BOUNCE and PRECISION easings. Saves up to 1850 bytes program memory
+// #define PROVIDE_ONLY_LINEAR_MOVEMENT  // Activating this disables all but LINEAR movement. Saves up to 1540 bytes program memory
+// #define DISABLE_COMPLEX_FUNCTIONS     // Activating this disables the SINE, CIRCULAR, BACK, ELASTIC, BOUNCE and PRECISION easings. Saves up to 1850 bytes program memory
 //#define DISABLE_MICROS_AS_DEGREE_PARAMETER // Activating this disables microsecond values as (target angle) parameter. Saves 128 bytes program memory
 //#define DISABLE_MIN_AND_MAX_CONSTRAINTS    // Activating this disables constraints. Saves 4 bytes RAM per servo but strangely enough no program memory
 //#define DISABLE_PAUSE_RESUME               // Activating this disables pause and resume functions. Saves 5 bytes RAM per servo
 // #define ENABLE_MIN_AND_MAX_CONSTRAINTS
 #define MAX_EASING_SERVOS 16
 #define NUMBER_OF_SERVOS 3
+
+/*
+ * Specify which easings types should be available.
+ * If no easing is defined, all easings are active.
+ * This must be done before the #include "ServoEasing.hpp"
+ */
+//#define ENABLE_EASE_QUADRATIC
+// #define ENABLE_EASE_CUBIC
+//#define ENABLE_EASE_QUARTIC
+#define ENABLE_EASE_SINE
+//#define ENABLE_EASE_CIRCULAR
+//#define ENABLE_EASE_BACK
+//#define ENABLE_EASE_ELASTIC
+//#define ENABLE_EASE_BOUNCE
+//#define ENABLE_EASE_PRECISION
+//#define ENABLE_EASE_USER
 
 #include "ServoEasing.hpp"
 
@@ -52,16 +68,17 @@
 
 // https://arminjo.github.io/ServoEasing/ServoEasing_8hpp_source.html#l00473
 // https://naylampmechatronics.com/blog/41_tutorial-modulo-controlador-de-servos-pca9685-con-arduino.html
+// PCA9685 -----> f = 50 Hz ------> p = 1/f = 20 ms
 // 4096 units per 20 milliseconds => aMicroseconds = units * 4.8828
 #define UNITS_TO_MICROSECONDS_CONSTANT 4.8828
 
 // Define minimum and maximum pulse width for the servomotors specified in microseconds
-#define SERVO_GRIPPER_MIN 145*UNITS_TO_MICROSECONDS_CONSTANT
-#define SERVO_GRIPPER_MAX 540*UNITS_TO_MICROSECONDS_CONSTANT
+#define SERVO_GRIPPER_MIN 172*UNITS_TO_MICROSECONDS_CONSTANT
+#define SERVO_GRIPPER_MAX 548*UNITS_TO_MICROSECONDS_CONSTANT
 #define SERVO_ELBOW_MIN 100*UNITS_TO_MICROSECONDS_CONSTANT
-#define SERVO_ELBOW_MAX 460*UNITS_TO_MICROSECONDS_CONSTANT
-#define SERVO_SHOULDER_MIN 86*UNITS_TO_MICROSECONDS_CONSTANT
-#define SERVO_SHOULDER_MAX 460*UNITS_TO_MICROSECONDS_CONSTANT
+#define SERVO_ELBOW_MAX 468*UNITS_TO_MICROSECONDS_CONSTANT
+#define SERVO_SHOULDER_MIN 114*UNITS_TO_MICROSECONDS_CONSTANT
+#define SERVO_SHOULDER_MAX 474*UNITS_TO_MICROSECONDS_CONSTANT
 
 // Functions declaration
 void tca_select(uint8_t channel);
@@ -76,11 +93,17 @@ ServoEasing servoShoulder(PCA9685_DEFAULT_ADDRESS);
 
 // Nema 17 stepper pins
 #define STEP_PIN 32
-#define DIR_PIN 2
+#define DIR_PIN 19
+#define MS1_PIN 16
+#define MS2_PIN 17
+#define MS3_PIN 18
 
 // Create the instance of the AccelStepper class
 AccelStepper stepper = AccelStepper(AccelStepper::DRIVER, STEP_PIN, DIR_PIN);
 
+// Define the pin where the limit switch is connected
+// Our limit switch -----> Normally open
+#define SWITCH_PIN 4
 
 
 
@@ -107,13 +130,56 @@ void setup() {
     digitalWrite(DIR_ENCODER_SHOULDER, LOW);
     digitalWrite(DIR_ENCODER_BASE, HIGH);
 
+    // checkMagnetPresence(ENCODER_SHOULDER_CHANNEL);
+
     tca_select(PCA9685_CHANNEL);  // Select channel 0 on TCA9548A
     // checkI2CConnection(PCA9685_DEFAULT_ADDRESS, &Serial);
+
+    // attach (int aPin, int aInitialDegreeOrMicrosecond, int aMicrosecondsForServoLowDegree, int aMicrosecondsForServoHighDegree, int aServoLowDegree, int aServoHighDegree)
+    // servoGripper.attach(SERVO_GRIPPER, 45, SERVO_GRIPPER_MIN, SERVO_GRIPPER_MAX, 0, 180);
+    // servoElbow.attach(SERVO_ELBOW, 0, SERVO_ELBOW_MIN, SERVO_ELBOW_MAX, 0, 180);
+    // servoShoulder.attach(SERVO_SHOULDER, 50, SERVO_SHOULDER_MIN, SERVO_SHOULDER_MAX, 0, 180);
 
     // attach (int aPin, int aMicrosecondsForServoLowDegree, int aMicrosecondsForServoHighDegree, int aServoLowDegree, int aServoHighDegree)
     servoGripper.attach(SERVO_GRIPPER, SERVO_GRIPPER_MIN, SERVO_GRIPPER_MAX, 0, 180);
     servoElbow.attach(SERVO_ELBOW, SERVO_ELBOW_MIN, SERVO_ELBOW_MAX, 0, 180);
     servoShoulder.attach(SERVO_SHOULDER, SERVO_SHOULDER_MIN, SERVO_SHOULDER_MAX, 0, 180);
+
+    // Wait for servos to reach start position
+    delay(2000);
+
+    // Set the maximum speed of the stepper
+    stepper.setMaxSpeed(1000.0);
+
+    // Set microstepping pins as output
+    pinMode(MS1_PIN, OUTPUT);
+    pinMode(MS2_PIN, OUTPUT);
+    pinMode(MS3_PIN, OUTPUT);
+
+    // Set the 1/8 microstepping level for the servomotor
+    digitalWrite(MS1_PIN, HIGH);
+    digitalWrite(MS2_PIN, HIGH);
+    digitalWrite(MS3_PIN, LOW);
+
+    // Set the pin from the limit switch as input
+    pinMode(SWITCH_PIN, INPUT_PULLUP);
+    // GPIO4 has a built-in pull-up resistor
+    // The pin will read HIGH when the switch is open
+    // When the switch is closed, the pin is pulled to LOW by connecting it to ground
+
+    // Set the accelaration to find the starting position (0°)
+    stepper.setAcceleration(1000);
+
+    // Move the motor counterclockwise until the limit switch activates (closes)
+    while (digitalRead(SWITCH_PIN) == HIGH) {  // While the switch is open (Note the pull-up resistor)
+        stepper.moveTo(stepper.currentPosition() - 1); // Move one step counterclockwise
+        stepper.run(); // Execute the movement
+    }
+
+    // Once the switch closes, stop the motor and mark the current position as 0°
+    stepper.setCurrentPosition(0); // Set the current position as 0°
+
+    Serial.println("HOME");
     
 }
 
@@ -128,11 +194,45 @@ void setup() {
 
 
 void loop() {
-    int rawAng1 = read_raw_angle(ENCODER_SHOULDER_CHANNEL);
-    float ang1 = convert_to_degrees(rawAng1);
-    Serial.println(ang1);
-    checkMagnetPresence(ENCODER_SHOULDER_CHANNEL);
-    delay(500);
+
+    tca_select(PCA9685_CHANNEL);
+    // int rawAng1 = read_raw_angle(ENCODER_SHOULDER_CHANNEL);
+    // float ang1 = convert_to_degrees(rawAng1);
+    // Serial.println(ang1);
+    // checkMagnetPresence(ENCODER_SHOULDER_CHANNEL);
+    // delay(500);
+
+    // servoGripper.setEasingType(EASE_SINE_IN_OUT);
+    // servoGripper.easeTo(90,10);
+
+    // servoElbow.setEasingType(EASE_SINE_IN_OUT);
+    // servoElbow.easeTo(90,8);
+
+    // servoShoulder.setEasingType(EASE_SINE_IN_OUT);
+    // servoShoulder.easeTo(36,8);
+
+    // stepper.setCurrentPosition(0);
+
+    // while (stepper.currentPosition() != 800)  {
+    //     stepper.setSpeed(50);
+    //     stepper.runSpeed();
+    //     Serial.println(stepper.currentPosition());
+    // }
+
+    // stepper.setCurrentPosition(0);
+
+    // while(stepper.currentPosition() != -800){
+    //     stepper.setSpeed(-50);
+    //     stepper.runSpeed();
+    // }
+
+
+
+    // delay(2000);
+
+
+
+
 }
 
 
