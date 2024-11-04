@@ -24,9 +24,9 @@
  * This must be done before the #include "ServoEasing.hpp"
  */
 //#define ENABLE_EASE_QUADRATIC
-// #define ENABLE_EASE_CUBIC
+#define ENABLE_EASE_CUBIC
 //#define ENABLE_EASE_QUARTIC
-#define ENABLE_EASE_SINE
+// #define ENABLE_EASE_SINE
 //#define ENABLE_EASE_CIRCULAR
 //#define ENABLE_EASE_BACK
 //#define ENABLE_EASE_ELASTIC
@@ -106,8 +106,12 @@ AccelStepper stepper = AccelStepper(AccelStepper::DRIVER, STEP_PIN, DIR_PIN);
 // Our limit switch -----> Normally open
 #define SWITCH_PIN 4
 
+float offsetValueBase;
+float offsetValueShoulder;
+float offsetValueElbow;
+float offsetValueGripper;
 
-
+#define DEG_PER_STEP 0.225
 
 
 
@@ -129,21 +133,19 @@ void setup() {
     digitalWrite(DIR_ENCODER_SHOULDER, LOW);
     digitalWrite(DIR_ENCODER_BASE, HIGH);
 
-    // check_magnet_presence(ENCODER_SHOULDER_CHANNEL);
-
     tca_select(PCA9685_CHANNEL);  // Select channel 0 on TCA9548A
     // checkI2CConnection(PCA9685_DEFAULT_ADDRESS, &Serial);
 
     // Home position
-    int baseHomeDeg = 0;
+    int baseHomeDeg = 90;
     int shoulderHomeDeg = 80;
     int elbowHomeDeg = 0;
     int gripperHomeDeg = 120;
 
     // attach (int aPin, int aInitialDegreeOrMicrosecond, int aMicrosecondsForServoLowDegree, int aMicrosecondsForServoHighDegree, int aServoLowDegree, int aServoHighDegree)
-    servoGripper.attach(SERVO_GRIPPER, gripperHomeDeg, SERVO_GRIPPER_MIN, SERVO_GRIPPER_MAX, 0, 180);
-    servoElbow.attach(SERVO_ELBOW, elbowHomeDeg, SERVO_ELBOW_MIN, SERVO_ELBOW_MAX, 0, 180);
     servoShoulder.attach(SERVO_SHOULDER, shoulderHomeDeg, SERVO_SHOULDER_MIN, SERVO_SHOULDER_MAX, 0, 180);
+    servoElbow.attach(SERVO_ELBOW, elbowHomeDeg, SERVO_ELBOW_MIN, SERVO_ELBOW_MAX, 0, 180);
+    servoGripper.attach(SERVO_GRIPPER, gripperHomeDeg, SERVO_GRIPPER_MIN, SERVO_GRIPPER_MAX, 0, 180);
 
     // attach (int aPin, int aMicrosecondsForServoLowDegree, int aMicrosecondsForServoHighDegree, int aServoLowDegree, int aServoHighDegree)
     // servoGripper.attach(SERVO_GRIPPER, SERVO_GRIPPER_MIN, SERVO_GRIPPER_MAX, 0, 180);
@@ -182,7 +184,16 @@ void setup() {
     }
 
     // Once the switch closes, stop the motor and mark the current position as 0°
-    stepper.setCurrentPosition(baseHomeDeg); // Set the current position as 0°
+    stepper.setCurrentPosition(0); // Set the current position as 0°
+
+    delay(4000);
+
+    // Move the stepper motor to home position (90°)
+    // DO LATER ------> Read the encoder to confirm if the motor has reached 90°
+    while (stepper.currentPosition() != 400)  {
+        stepper.setSpeed(50);
+        stepper.runSpeed();
+    }
 
     // Once the robot is positioned at the home location, adjust the encoder values to align with the robot's defined rotation axes
     // The rotation direction has already been set, so it matches in both the encoders and the motors
@@ -203,10 +214,10 @@ void setup() {
     // theta_encoder_adjusted = theta_encoder - offset
 
     // Calulate each offset value
-    float offsetValueBase = initialBaseEncoderDegValue - baseHomeDeg;
-    float offsetValueShoulder = initialShoulderEncoderDegValue - shoulderHomeDeg;
-    float offsetValueElbow = initialElbowEncoderDegValue - elbowHomeDeg;
-    float offsetValueGripper = initialGripperEncoderDegValue - gripperHomeDeg;
+    offsetValueBase = initialBaseEncoderDegValue - baseHomeDeg;
+    offsetValueShoulder = initialShoulderEncoderDegValue - shoulderHomeDeg;
+    offsetValueElbow = initialElbowEncoderDegValue - elbowHomeDeg;
+    offsetValueGripper = initialGripperEncoderDegValue - gripperHomeDeg;
 
     // Check if the encoder values have been adjusted correctly
     float angBaseAdjusted = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
@@ -219,18 +230,98 @@ void setup() {
     Serial.println("q3: " + String(angElbowAdjusted,2));
     Serial.println("q4: " + String(angGripperAdjusted,2));
 
-    Serial.println("HOME");
+    check_magnet_presence(ENCODER_BASE_CHANNEL);
+    check_magnet_presence(ENCODER_SHOULDER_CHANNEL);
+    check_magnet_presence(ENCODER_ELBOW_CHANNEL);
+    check_magnet_presence(ENCODER_GRIPPER_CHANNEL);
+
+    Serial.println("home");
     
+    delay(2000);
 }
 
 
 
-
+float q1, q2, q3, q4;
+float qd1, qd2, qd3, qd4;
 
 
 void loop() {
 
     tca_select(PCA9685_CHANNEL);
+
+
+    servoShoulder.setEasingType(EASE_CUBIC_IN_OUT);
+    servoElbow.setEasingType(EASE_CUBIC_IN_OUT);
+    servoGripper.setEasingType(EASE_CUBIC_IN_OUT);
+
+
+
+
+
+
+
+
+    // servoElbow.easeTo(40, 10);
+
+    // // Commands to move actuators
+    // servoShoulder.setEaseTo(50, 10);
+    // servoElbow.setEaseTo(40, 10);
+    // servoGripper.startEaseToD(60, 10);
+
+
+    // // Blink until servos stops
+    // while (ServoEasing::areInterruptsActive()) {
+    //     // Here you can insert your own code
+    //     Serial.println("Hola");
+    // }
+
+    // delay(2000);
+
+
+
+
+
+    // setSpeedForAllServos(20);  // This speed is taken if no further speed argument is given.
+    // for (uint_fast8_t i = 0; i <= ServoEasing::sServoArrayMaxIndex; ++i) {
+    //     ServoEasing::ServoEasingArray[i]->startEaseTo(40);
+    // }
+    // delay(1000);
+
+
+
+
+
+
+
+
+    // ServoEasing::ServoEasingNextPositionArray[0] = 50;
+    // ServoEasing::ServoEasingNextPositionArray[1] = 50;
+    // ServoEasing::ServoEasingNextPositionArray[2] = 50;
+    // setEaseToForAllServosSynchronizeAndStartInterrupt(10); // Set speed and start interrupt here, we check the end with areInterruptsActive()
+
+
+    // // stepper.setSpeed(10);
+    // // stepper.moveTo((1600.0 / 360) * 90);
+    // // stepper.runToPosition();  // Blocks until it reaches the position
+
+    //     while (ServoEasing::areInterruptsActive()) {
+    //     // Here you can insert your own code
+    //     Serial.println("hola");
+    // }
+
+    // delay(1000);
+
+
+
+
+
+
+
+
+
+
+
     // int rawAng1 = read_raw_angle(ENCODER_SHOULDER_CHANNEL);
     // float ang1 = convert_to_degrees(rawAng1);
     // Serial.println(ang1);
@@ -239,12 +330,6 @@ void loop() {
 
     // servoGripper.setEasingType(EASE_SINE_IN_OUT);
     // servoGripper.easeTo(90,10);
-
-    // servoElbow.setEasingType(EASE_SINE_IN_OUT);
-    // servoElbow.easeTo(90,8);
-
-    // servoShoulder.setEasingType(EASE_SINE_IN_OUT);
-    // servoShoulder.easeTo(36,8);
 
     // stepper.setCurrentPosition(0);
 
@@ -256,14 +341,66 @@ void loop() {
 
     // stepper.setCurrentPosition(0);
 
-    // while(stepper.currentPosition() != -800){
-    //     stepper.setSpeed(-50);
-    //     stepper.runSpeed();
+    // if (Serial.available() > 0) {
+    //     String mensaje = Serial.readStringUntil('\n');  // Reads the message until the newline character
+
+    //     if (mensaje == "comenzar") {
+    //         // Sends the joint angles to the Python code
+    //         float q1_lec = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
+    //         float q2_lec = read_deg_angle(ENCODER_SHOULDER_CHANNEL) - offsetValueShoulder;
+    //         float q3_lec = read_deg_angle(ENCODER_ELBOW_CHANNEL) - offsetValueElbow;
+    //         float q4_lec = read_deg_angle(ENCODER_GRIPPER_CHANNEL) - offsetValueGripper;
+
+    //         Serial.print(q1_lec); Serial.print(',');
+    //         Serial.print(q2_lec); Serial.print(',');
+    //         Serial.print(q3_lec); Serial.print(',');
+    //         Serial.print(q4_lec); Serial.println();  // Sends values separated by commas and ends with a newline
+
+    //         // Waits for Python's response with q and qd
+    //         while (Serial.available() == 0) {
+    //             // Waits until data is available
+    //         }
+
+    //         // Reads values from Python
+    //         String datosRecibidos = Serial.readStringUntil('\n');
+    //         sscanf(datosRecibidos.c_str(), "%f,%f,%f,%f", &q1, &q2, &q3, &q4);  // Parsing received data
+
+    //         String datosRecibidos2 = Serial.readStringUntil('\n');
+    //         sscanf(datosRecibidos2.c_str(), "%f,%f,%f,%f", &qd1, &qd2, &qd3, &qd4);  // Parsing received data
+
+    //     } else {
+    //         // Reads values from Python
+    //         String datosRecibidos = Serial.readStringUntil('\n');
+    //         sscanf(datosRecibidos.c_str(), "%f,%f,%f,%f", &q1, &q2, &q3, &q4);  // Parsing received data
+
+    //         String datosRecibidos2 = Serial.readStringUntil('\n');
+    //         sscanf(datosRecibidos2.c_str(), "%f,%f,%f,%f", &qd1, &qd2, &qd3, &qd4);  // Parsing received data
+    //     }
+
+    //     // Commands to move actuators
+    //     servoShoulder.startEaseTo(q2, qd2);
+    //     servoElbow.startEaseTo(q3, qd3);
+    //     servoGripper.startEaseTo(q4, qd4);
+
+    //     stepper.setSpeed(qd1 / DEG_PER_STEP);
+    //     stepper.moveTo((1600.0 / 360) * q1);
+    //     stepper.runToPosition();  // Blocks until it reaches the position
+
+    //     // Before sending data, check if the selected dt has elapsed
+    //     // Use millis() and remain in a loop until the time has passed
+
+    //     float q1_lec2 = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
+    //     float q2_lec2 = read_deg_angle(ENCODER_SHOULDER_CHANNEL) - offsetValueShoulder;
+    //     float q3_lec2 = read_deg_angle(ENCODER_ELBOW_CHANNEL) - offsetValueElbow;
+    //     float q4_lec2 = read_deg_angle(ENCODER_GRIPPER_CHANNEL) - offsetValueGripper;
+
+    //     Serial.print(q1_lec2); Serial.print(',');
+    //     Serial.print(q2_lec2); Serial.print(',');
+    //     Serial.print(q3_lec2); Serial.print(',');
+    //     Serial.print(q4_lec2); Serial.println();  // Sends values separated by commas and ends with a newline
     // }
 
 
-
-    // delay(2000);
 
 
 

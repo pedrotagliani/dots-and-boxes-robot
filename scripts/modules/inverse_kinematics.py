@@ -1,11 +1,11 @@
 from math import degrees, radians, sin, cos, sqrt, atan2, pi
 
 # Variables relacionadas a cada una de las longitudes intervinientes en los cálculos (todo en centímetros)
-l1 = 10.3
-l2 = 16.525
-l3 = 15.645
-l4 = 8.8
-l5 = 7.4
+l1 = 14.085
+l2 = 12.725
+l3 = 10.222
+l4 = 11.200
+l5 = 8.400
 
 def inverse_kinematics(px, py, pz, pitchAngle): # El pitchAngle recibido está en radianes
     try:
@@ -51,7 +51,7 @@ def inverse_kinematics(px, py, pz, pitchAngle): # El pitchAngle recibido está e
 
         # Expresiones para las variables articulares q2, q3 y q4
         q2 = theta2
-        q3 = (pi/2 + radians(62)) - (pi - theta3_sol1) # El pi/2 + radians(62) corresponde a la nueva posición de 0° del servomotor en relación a los 0° originales según el dibujo
+        q3 = (pi/2 + radians(36)) - (pi - theta3_sol1) # El pi/2 + radians(62) corresponde a la nueva posición de 0° del servomotor en relación a los 0° originales según el dibujo
         q4 = theta4 + (-pitchAngle) # Se le cambia el signo al ángulo pitch porque Y0 se analizó desde atrás
 
         # Ojo con el tema de los ángulos q. En el dibujo de cinemática inversa, prestar atención a dónde está definido el cero y el sentido de giro para cada q.
@@ -60,10 +60,10 @@ def inverse_kinematics(px, py, pz, pitchAngle): # El pitchAngle recibido está e
         # O sea, todos los cálculos son los mismos, menos el cálculo de los q.
 
         # Se pasa de radianes a grados
-        q1 = round(degrees(q1))
-        q2 = round(degrees(q2))
-        q3 = round(degrees(q3))
-        q4 = round(degrees(q4))
+        q1 = degrees(q1)
+        q2 = degrees(q2)
+        q3 = degrees(q3)
+        q4 = degrees(q4)
 
         return [q1,q2,q3,q4]
     except:
@@ -72,12 +72,12 @@ def inverse_kinematics(px, py, pz, pitchAngle): # El pitchAngle recibido está e
 
 if __name__ == '__main__':
     # Ejemplo de aplicación
-    px = 16.14
+    px = 20.47
     py = 0
-    pz = 5.61
+    pz = 27.71
 
     # Se define la orientación del efector final respecto a la terna base (solo es posible controlar el ángulo de cabeceo):
-    pitchAngle = radians(0)
+    pitchAngle = radians(-74)
 
     qList = inverse_kinematics(px, py, pz, pitchAngle)
 
