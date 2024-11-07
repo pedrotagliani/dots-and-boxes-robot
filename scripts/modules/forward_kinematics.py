@@ -31,10 +31,10 @@ def forward_kinematics(q): # Los valores de las variables articulares están en 
 
 if __name__ == '__main__':
     # Ejemplo de aplicación
-    q1 = 90
-    q2 = 40
-    q3 = 80
-    q4 = 10
+    q1 = 90.0
+    q2 = 80.0
+    q3 = 0.0
+    q4 = 120.0
 
     q = [q1, q2, q3, q4]
 

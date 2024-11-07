@@ -23,7 +23,7 @@ class MyCamera():
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
             # Load the data from the pickle file
-            with open('config/camera_config_480p.pckl', 'rb') as file:
+            with open('../config/camera_config_480p.pckl', 'rb') as file:
                 loadedData = pickle.load(file)
 
             # Default values obtained through calibration are specific to the Q-BOX camera
@@ -35,7 +35,7 @@ class MyCamera():
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
             # Load the data from the pickle file
-            with open('config/camera_config_1080p.pckl', 'rb') as file:
+            with open('../config/camera_config_1080p.pckl', 'rb') as file:
                 loadedData = pickle.load(file)
 
             # Default values obtained through calibration are specific to the Q-BOX camera

@@ -136,6 +136,8 @@ def crop_image(point1, point2, lineType, frameCopyToCut, resolution, boardNumRow
 
     # frameCopyToCut = frame.copy()
     # We don't want to make a copy to keep rectangles related to frameCopyToCut. A copy would make the cut independent of the whole image.
+
+    cropConstant = (boardNumRows + boardNumCols) / 2
     
     # print(frameCopyToCut.shape) # (2080, 2920, 3)
 
@@ -152,7 +154,7 @@ def crop_image(point1, point2, lineType, frameCopyToCut, resolution, boardNumRow
     if lineType == 'horizontal':
 
         # Define corners for the new rectangle (considering a padding in the y axis)
-        padding = (frameHeight/boardNumRows)*0.2
+        padding = (frameHeight/cropConstant)*0.1
         # Be careful with the padding, if it surpass the borders of the image, an error will raise in gray
 
         # Select two opposite vertices of the rectangle
@@ -164,7 +166,7 @@ def crop_image(point1, point2, lineType, frameCopyToCut, resolution, boardNumRow
 
     elif lineType == 'vertical':
         # Define corners for the new rectangle (considering a padding in the x axis)
-        padding = (frameHeight/boardNumRows)*0.2
+        padding = (frameHeight/cropConstant)*0.1
         # Be careful with the padding, if it surpass the borders of the image, an error will raise in gray
 
         # Select two opposite vertices of the rectangle
@@ -225,9 +227,15 @@ def detect_lines(thresholdedImage):
 
     rho = 1              # Distance resolution of the accumulator in pixels
     theta = np.pi/180    # Angle resolution of the accumulator in radians
-    threshold = 100       # Only lines that are greater than threshold will be returned
-    minLineLength = maxDimensionValue*0.5   # Line segments shorter than that are rejected
+    threshold = 120       # Only lines that are greater than threshold will be returned
+    minLineLength = maxDimensionValue*0.7   # Line segments shorter than that are rejected
     maxLineGap = 5     # Maximum allowed gap between points on the same line to link them
+
+    # rho = 1              # Distance resolution of the accumulator in pixels
+    # theta = np.pi/180    # Angle resolution of the accumulator in radians
+    # threshold = 100       # Only lines that are greater than threshold will be returned
+    # minLineLength = maxDimensionValue*0.5   # Line segments shorter than that are rejected
+    # maxLineGap = 5     # Maximum allowed gap between points on the same line to link them
 
     linesP = cv2.HoughLinesP(thresholdedImage, rho = rho, theta = theta, threshold = threshold, minLineLength = minLineLength, maxLineGap = maxLineGap)
 

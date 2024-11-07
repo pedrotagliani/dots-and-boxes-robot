@@ -38,7 +38,7 @@ class DnbGame():
         self.boardNumColumns = self.dotsWidth - 1
         self.boardNumRows = self.dotsHeight - 1
         self.boardSize = (self.boardNumRows, self.boardNumColumns) # A board in the dnbpy library is described using the convention n x m, where n is the number of rows, and m is the number of columns
-        self.boardTotalLines = self.dotsHeight*self.boardNumRows + self.dotsWidth*self.boardNumColumns # If 6x6 --> 60 lines
+        self.boardTotalLines = self.dotsWidth*self.boardNumRows + self.dotsHeight*self.boardNumColumns # If 6x6 --> 60 lines
         self.distanceBetweenDots = distanceBetweenDots
         self.markerSizeInCM = markerSizeInCM # Size of the marker in centimetre
 
@@ -72,11 +72,13 @@ class DnbGame():
         # First, take into account the distance from the robot base frame to the first point on the whiteboard (consider the orientation of the base frame's axis)
         # If this is not clear, refer to the image 'v2_Robot to circles.png'
 
-        xbp1 = 19 # CHECK
-        ybp1 = -8.2 # CHECK
-        zbp = 0.2 # CHECK
+        xbp1 = 23.4 # CHECK
+        ybp1 = -5.4 # CHECK
+        zbp = 4 # CHECK
 
         self.tbpointsMatrix = utils.get_distance_matrix_from_robot_to_points(xbp1, ybp1, zbp, self.dotsHeight, self.dotsWidth, self.distanceBetweenDots)
+
+        print(self.tbpointsMatrix)
 
         # The width of the wood is 21.4cm
         # The length of the board (excluding the black frames) is 33cm.
@@ -245,8 +247,8 @@ class DnbGame():
                         # If I take the distance from one marker to only one circle, I can calculate the rest because they are all separated by approximately 3.6cm
 
                         # Distance from marker with ID 0 to the first circle ---> (-0.8cm, 6.2cm, 0cm)
-                        x0p = -0.8
-                        y0p = 6.2
+                        x0p = -0.8 + 3.6
+                        y0p = 6.2 + 3.6
                         z0p = 0
 
                         # I know the pose of this marker with respect to the camera. Hence I can construct the homogeneous transformation matrix that maps points from the marker’s coordinate frame to the camera’s coordinate frame
@@ -290,8 +292,8 @@ class DnbGame():
                         cv2.circle(frameCopy,(int(tcpProjected0[0]),int(tcpProjected0[1])),5,(0,255,0),thickness=-1)
 
                         # Distance from marker with ID 1 to the first circle
-                        x1p = -3.5 - 3.6*5
-                        y1p = 6.6 + 0.2
+                        x1p = -3.5 - 3.6*5 + 3.6
+                        y1p = 6.6 + 0.2 + 3.6
                         z1p = 0
 
                         # Translation vector from the marker 1 to the nearest circle (1 to point)
@@ -308,8 +310,8 @@ class DnbGame():
                         cv2.circle(frameCopy,(int(tcpProjected1[0]),int(tcpProjected1[1])),5,(0,255,0),thickness=-1)
 
                         # Distance from marker with ID 2 to the first circle
-                        x2p = -6.1 - 3.6*5 + 0.2
-                        y2p = 3.5 + 3.6*5 + 0.2
+                        x2p = -6.1 - 3.6*5 + 0.2 + 3.6
+                        y2p = 3.5 + 3.6*5 + 0.2 - 3.6
                         z2p = 0
 
                         # Translation vector from the marker 2 to the nearest circle (2 to point)
@@ -326,8 +328,8 @@ class DnbGame():
                         cv2.circle(frameCopy,(int(tcpProjected2[0]),int(tcpProjected2[1])),5,(0,255,0),thickness=-1)
 
                         # Distance from marker with ID 3 to the first circle
-                        x3p = -6.4 - 3.6*5 - 0.4
-                        y3p = 0.4
+                        x3p = -6.4 - 3.6*5 - 0.4 + 3.6
+                        y3p = 0.4 - 3.6
                         z3p = 0
 
                         # Translation vector from the marker 3 to the nearest circle (3 to point)
@@ -603,6 +605,7 @@ class DnbGame():
                     # If it's the first row, do nothing
                     if lastDot == [None, None]:
                         lastDot = [averageTcpMatrixTransformed[row][column][0], averageTcpMatrixTransformed[row][column][1]]
+
                     else:
                         # Crop the image to get the particular segment between the two points
                         currentRectangle, topLeftRect, bottomRightRect = utils.crop_image(lastDot, averageTcpMatrixTransformed[row][column], lineType, detectedLinesFrame, '1080p', self.boardNumRows, self.boardNumColumns)
@@ -612,6 +615,7 @@ class DnbGame():
 
                         # Detect if there is a line in the selected segment
                         lineDetection = utils.detect_lines(threshInv)
+
 
                         # Draw the rectangle
                         # utils.draw_rectangle(topLeftRect, bottomRightRect, detectedLinesFrame)
@@ -688,6 +692,7 @@ class DnbGame():
                         # Get the dnbpy contention of the detected line
                         if lineDetection is not None:
                             detectedVerticalLineDnbpyConv = int(self.verticalLinesMatrix[row-1][column])
+
                             # print(f'{detectedVerticalLineDnbpyConv} - {lineType}')
                             # [row-1] because, in the first iteration of this loop, lastDot = [None, None]
                             
@@ -844,6 +849,7 @@ class DnbGame():
 
                         # A new line was detected, so it has to be the last one in the list
                         playerMove = detectedLinesList[-1]
+                        print(playerMove)
 
                         # Here is an issue to consider: If I drew three lines and then pressed ‘m,’, only the last one will be taken into account. 
                         # But of course, this breaks the entire logic because the list would have two other lines that are supposedly already drawn, but in reality, they are not
@@ -874,16 +880,17 @@ class DnbGame():
                 # Use those indices in the 6x6 distance matrix from the base frame of the robot to the circles on the whiteboard to get the initial and final points of the line
                 initialPoint = self.tbpointsMatrix[int(pointsIndexforLine[0][0][0])][int(pointsIndexforLine[0][0][1])]
                 finalPoint = self.tbpointsMatrix[int(pointsIndexforLine[0][1][0])][int(pointsIndexforLine[0][1][1])]
+                
+                # Append the pitch angle to the points --------> points = [x, y, z, pitchAngle]
+                initialPoint.append(0)
+                finalPoint.append(0)
 
                 print(f'Punto inicial: {initialPoint}')
                 print(f'Punto final: {finalPoint}')
                 print(lineType2)
 
-                # # Interpolate the line between the initial and final point
-                # interpolationPointsArray = simple_interpolator(initialPoint, finalPoint, lineType2) # Returns a numpy array with a shape of (numInterpolatedPoints, 3)
-
-                # # Send the instructions to the motors via serial communication with the ESP32
-                # thread_serial_communication(interpolationPointsArray)
+                # Interpolate the point and send the instructions to the motors via serial communication with the ESP32
+                # thread_serial_communication(initialPoint, finalPoint)
 
                 # Continue running this while loop until a line drawn by the robot is detected and it must be the correct one
                 while runningLoop == True:
@@ -917,7 +924,7 @@ class DnbGame():
         
         # If the match has ended...
         if self.has_finished() == True:
-            print('\----------------------------------------')
+            print('----------------------------------------')
             print('La partida terminó.\n')
 
             # Get individual scores

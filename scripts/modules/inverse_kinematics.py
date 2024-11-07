@@ -72,12 +72,12 @@ def inverse_kinematics(px, py, pz, pitchAngle): # El pitchAngle recibido está e
 
 if __name__ == '__main__':
     # Ejemplo de aplicación
-    px = 20.47
-    py = 0
-    pz = 27.71
+    px = 20.50379108875679
+    py = -0.062277091906715425
+    pz = 27.436557435350323
 
     # Se define la orientación del efector final respecto a la terna base (solo es posible controlar el ángulo de cabeceo):
-    pitchAngle = radians(-74)
+    pitchAngle = radians(-73.14657318498203)
 
     qList = inverse_kinematics(px, py, pz, pitchAngle)
 

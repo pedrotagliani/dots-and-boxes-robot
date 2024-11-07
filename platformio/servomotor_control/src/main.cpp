@@ -23,10 +23,10 @@
  * If no easing is defined, all easings are active.
  * This must be done before the #include "ServoEasing.hpp"
  */
-//#define ENABLE_EASE_QUADRATIC
+#define ENABLE_EASE_QUADRATIC
 #define ENABLE_EASE_CUBIC
 //#define ENABLE_EASE_QUARTIC
-// #define ENABLE_EASE_SINE
+#define ENABLE_EASE_SINE
 //#define ENABLE_EASE_CIRCULAR
 //#define ENABLE_EASE_BACK
 //#define ENABLE_EASE_ELASTIC
@@ -86,6 +86,10 @@ int read_raw_angle(uint8_t encoderChannel);
 float convert_to_degrees(int rawAngle);
 void check_magnet_presence(uint8_t encoderChannel);
 float read_deg_angle(uint8_t encoderChannel);
+void calculate_sync_speeds(bool stepperVelConstant);
+float deg_to_steps(float degAngle);
+void read_all_encoders();
+void move_robot();
 
 // Create the instances of the ServoEasing class
 ServoEasing servoGripper(PCA9685_DEFAULT_ADDRESS);
@@ -106,16 +110,20 @@ AccelStepper stepper = AccelStepper(AccelStepper::DRIVER, STEP_PIN, DIR_PIN);
 // Our limit switch -----> Normally open
 #define SWITCH_PIN 4
 
+// Define the offset values to adjust the readings of the encoders
 float offsetValueBase;
 float offsetValueShoulder;
 float offsetValueElbow;
 float offsetValueGripper;
 
-#define DEG_PER_STEP 0.225
+// 1/8 microstepping variables
+#define STEPS_PER_REVOLUTION 1600.0
+#define DEGREES_PER_STEP 0.225
 
 
 
 void setup() {
+    
     Serial.begin(115200);
     Wire.begin();  // Initialize I2C communication
 
@@ -156,7 +164,7 @@ void setup() {
     delay(4000);
 
     // Set the maximum speed of the stepper
-    stepper.setMaxSpeed(1000.0);
+    stepper.setMaxSpeed(2000.0);
 
     // Set microstepping pins as output
     pinMode(MS1_PIN, OUTPUT);
@@ -175,7 +183,7 @@ void setup() {
     // When the switch is closed, the pin is pulled to LOW by connecting it to ground
 
     // Set the accelaration to find the starting position (0°)
-    stepper.setAcceleration(1000);
+    stepper.setAcceleration(500);
 
     // Move the motor counterclockwise until the limit switch activates (closes)
     while (digitalRead(SWITCH_PIN) == HIGH) {  // While the switch is open (Note the pull-up resistor)
@@ -186,12 +194,12 @@ void setup() {
     // Once the switch closes, stop the motor and mark the current position as 0°
     stepper.setCurrentPosition(0); // Set the current position as 0°
 
-    delay(4000);
+    delay(1000);
 
     // Move the stepper motor to home position (90°)
     // DO LATER ------> Read the encoder to confirm if the motor has reached 90°
-    while (stepper.currentPosition() != 400)  {
-        stepper.setSpeed(50);
+    while (stepper.currentPosition() != (deg_to_steps(baseHomeDeg)))  {
+        stepper.setSpeed(60);
         stepper.runSpeed();
     }
 
@@ -225,38 +233,113 @@ void setup() {
     float angElbowAdjusted = read_deg_angle(ENCODER_ELBOW_CHANNEL) - offsetValueElbow;
     float angGripperAdjusted = read_deg_angle(ENCODER_GRIPPER_CHANNEL) - offsetValueGripper;
 
-    Serial.println("q1: " + String(angBaseAdjusted,2));
-    Serial.println("q2: " + String(angShoulderAdjusted,2));
-    Serial.println("q3: " + String(angElbowAdjusted,2));
-    Serial.println("q4: " + String(angGripperAdjusted,2));
+    // Serial.println("q1: " + String(angBaseAdjusted,2));
+    // Serial.println("q2: " + String(angShoulderAdjusted,2));
+    // Serial.println("q3: " + String(angElbowAdjusted,2));
+    // Serial.println("q4: " + String(angGripperAdjusted,2));
 
-    check_magnet_presence(ENCODER_BASE_CHANNEL);
-    check_magnet_presence(ENCODER_SHOULDER_CHANNEL);
-    check_magnet_presence(ENCODER_ELBOW_CHANNEL);
-    check_magnet_presence(ENCODER_GRIPPER_CHANNEL);
-
-    Serial.println("home");
+    // check_magnet_presence(ENCODER_BASE_CHANNEL);
+    // check_magnet_presence(ENCODER_SHOULDER_CHANNEL);
+    // check_magnet_presence(ENCODER_ELBOW_CHANNEL);
+    // check_magnet_presence(ENCODER_GRIPPER_CHANNEL);
     
     delay(2000);
 }
 
 
 
-float q1, q2, q3, q4;
-float qd1, qd2, qd3, qd4;
+// Create a struct to save the desired angular positions to attain with the servomotors
+struct DesiredJointAngles {
+    float q1;
+    float q2;
+    float q3;
+    float q4;
+};
 
+// Create a global instance of DesiredJointAngles
+DesiredJointAngles desiredJointAngles;
+
+// Create a struct to save the actual position of the servomotors
+struct CurrentJointAngles {
+    // It's initially set with the home angles
+    float q1 = 90.0;
+    float q2 = 80.0;
+    float q3 = 0.0;
+    float q4 = 120.0;
+};
+
+// Create a global instance of CurrentJointAngles
+CurrentJointAngles currentJointAngles;
+
+// Create a struct to save the calculated sync velocities (strut it's like a class)
+struct SyncSpeeds {
+    float servosSyncSpeed;
+    float stepperSyncSpeed;
+};
+
+// Create a global instance of SyncSpeeds
+SyncSpeeds syncSpeeds;
+
+// Define the variable to save the acceleraton of the stepper motor
+float accelStepperSync;
 
 void loop() {
 
-    tca_select(PCA9685_CHANNEL);
+    servoShoulder.setEasingType(EASE_SINE_IN_OUT);
+    servoElbow.setEasingType(EASE_SINE_IN_OUT);
+    servoGripper.setEasingType(EASE_SINE_IN_OUT);
+
+    // currentJointAngles.q1 = 90.0;
+    // currentJointAngles.q2 = 80.0;
+    // currentJointAngles.q3 = 0.0;
+    // currentJointAngles.q4 = 120.0;
+
+    // desiredJointAngles.q1 = 80.0;
+    // desiredJointAngles.q2 = 60.0;
+    // desiredJointAngles.q3 = 20.0;
+    // desiredJointAngles.q4 = 100;
+
+    // calculate_sync_speeds(false);
+
+    // // Select the desired channel on the TCA9548A
+    // tca_select(PCA9685_CHANNEL);
+
+    // ServoEasing::ServoEasingNextPositionArray[0] = desiredJointAngles.q2;
+    // ServoEasing::ServoEasingNextPositionArray[1] = desiredJointAngles.q3;
+    // ServoEasing::ServoEasingNextPositionArray[2] = desiredJointAngles.q4;
+    // setEaseToForAllServosSynchronizeAndStartInterrupt(syncSpeeds.servosSyncSpeed); // Set speed and start interrupt here, we check the end with areInterruptsActive()
+
+    // stepper.setAcceleration(accelStepperSync);
+    // stepper.moveTo(deg_to_steps(desiredJointAngles.q1));
+    // stepper.runToPosition();  // Blocks until it reaches the position
+
+    // delay(10);
 
 
-    servoShoulder.setEasingType(EASE_CUBIC_IN_OUT);
-    servoElbow.setEasingType(EASE_CUBIC_IN_OUT);
-    servoGripper.setEasingType(EASE_CUBIC_IN_OUT);
+    if (Serial.available() > 0) {
+        
+        // Read the available data in the buffer
+        String recibedData = Serial.readStringUntil('\n');
+
+        if (recibedData == "a") {
+            read_all_encoders();
+        } else if (recibedData == "b") {
+            Serial.println("sendit");
+            move_robot();
+        }
 
 
 
+
+
+
+
+
+
+
+
+
+    }
 
 
 
@@ -298,7 +381,7 @@ void loop() {
     // ServoEasing::ServoEasingNextPositionArray[0] = 50;
     // ServoEasing::ServoEasingNextPositionArray[1] = 50;
     // ServoEasing::ServoEasingNextPositionArray[2] = 50;
-    // setEaseToForAllServosSynchronizeAndStartInterrupt(10); // Set speed and start interrupt here, we check the end with areInterruptsActive()
+    // setEaseToForAllServosSynchronizeAndStartInterrupt(20); // Set speed and start interrupt here, we check the end with areInterruptsActive()
 
 
     // // stepper.setSpeed(10);
@@ -558,4 +641,139 @@ void check_magnet_presence(uint8_t encoderChannel)
     }else if(magnetStatus & AS5600_MAGNET_LOW){
         Serial.println("Magnet too weak (ML).");
     }
+}
+
+// We are working with global variables (currentJointAngles, desiredJointAngles, syncSpeeds and accelStepperSync) so it's not necessary to pass any arguments to this function
+void calculate_sync_speeds(bool stepperVelConstant){
+
+    // Differentiate between the desired joint angles and the current joint angles
+    // Note that each q will be always positive due to the declared servomotors restrictions
+    float q1DeltaAngle = abs(desiredJointAngles.q1 - currentJointAngles.q1);
+    float q2DeltaAngle = abs(desiredJointAngles.q2 - currentJointAngles.q2);
+    float q3DeltaAngle = abs(desiredJointAngles.q3 - currentJointAngles.q3);
+    float q4DeltaAngle = abs(desiredJointAngles.q4 - currentJointAngles.q4);
+
+    // q2, q3 and q4 are synchronized by servoEasing library, now it's necessary to sync them with the stepper motor manually
+
+    // q2, q3 and q4 ----> synchronized ----> The slowest one will dictate the overall speed
+    // The one with the longest distance (deltaAngle) will be the slowest
+
+    // If sync, servomotors velocity can't be less than 10 deg/s
+    
+    // if MAX(q2DeltaAngle, q3DeltaAngle, q4DeltaAngle) >= q1DeltaAngle --------------> Servomotors define the speed
+    // if MAX(q2DeltaAngle, q3DeltaAngle, q4DeltaAngle) < q1DeltaAngle --------------> Stepper motor defines the speed
+    // That would be a way of doing it, but we set that servomotors define the speed, and hence the stepper adapts to them
+
+    // Get the slowest servomotor
+    float longestDistanceServo = max(q2DeltaAngle, q3DeltaAngle);
+    longestDistanceServo = max(longestDistanceServo, q4DeltaAngle);
+
+    // Set the servos speed [deg/s]
+    float speedSlowestServo = 24.0;
+
+    // Calculate the it time will take the slowest servo to reach the desired point [s]
+    float movementDurationSlowestServo = longestDistanceServo/speedSlowestServo;
+
+    // Define the speed of the stepper
+    float speedStepperSync;
+
+    if (stepperVelConstant == true) {
+        // Calculate the speed the stepper motor needs to be synchronized with the servomotors [deg/s]
+        float speedStepperSync = q1DeltaAngle/movementDurationSlowestServo;
+
+        // We need the speed of the stepper motor in [steps/second]
+        speedStepperSync = speedStepperSync/DEGREES_PER_STEP;
+
+        // If the speed is constant, the acceleration is equal to zero
+        accelStepperSync = 0;
+    } else {
+        // Calculate the acceleration of the stepper (considering v0 = 0 deg/s)
+        accelStepperSync = (2*(q1DeltaAngle))/(pow(movementDurationSlowestServo,2));
+
+        // Initial speed (v0)
+        speedStepperSync = 0;
+    }
+
+    // WHEN THE LONGEST DISTANCE IS GREATER THAN 20°, THIS DOESN'T WORK SO WELL. THE STEPPER ARRIVES LATE
+
+    syncSpeeds.servosSyncSpeed = speedSlowestServo; // [deg/s]
+    syncSpeeds.stepperSyncSpeed = speedStepperSync; // [steps/s]
+    
+    // [deg/s2] to [step/s2]
+    accelStepperSync = accelStepperSync/DEGREES_PER_STEP;
+
+}
+
+float deg_to_steps(float degAngle){
+    return degAngle*(STEPS_PER_REVOLUTION/360.0);
+    // [deg] to [steps]
+    // [deg/s] to [steps/s]
+    // [degs/s2] to [steps/s2]
+}
+
+
+void read_all_encoders(){
+    float q1Lec = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
+    float q2Lec = read_deg_angle(ENCODER_SHOULDER_CHANNEL) - offsetValueShoulder;
+    float q3Lec = read_deg_angle(ENCODER_ELBOW_CHANNEL) - offsetValueElbow;
+    float q4Lec = read_deg_angle(ENCODER_GRIPPER_CHANNEL) - offsetValueGripper;
+
+    Serial.print(q1Lec); Serial.print(",");
+    Serial.print(q2Lec); Serial.print(",");
+    Serial.print(q3Lec); Serial.print(",");
+    Serial.print(q4Lec); Serial.println();
+}
+
+void move_robot() {
+    // Create an auxiliar bool variable
+    bool trajectoryCompleted = false;
+
+    while (trajectoryCompleted == false) {
+        if (Serial.available() > 0) {
+
+            // Read the available data in the buffer
+            // The choice 'b' is confirmed, so the following data are the target angles that the motors should reach or a completion notification
+            String movementData = Serial.readStringUntil('\n');
+
+            if (movementData != "completed"){
+
+                // Store the desired angles in the global instance named desiredJointAngles
+                sscanf(movementData.c_str(), "%f,%f,%f,%f", &desiredJointAngles.q1, &desiredJointAngles.q2, &desiredJointAngles.q3, &desiredJointAngles.q4);  // Parsing received data
+
+                // Perform the movements to complete the desired trajectory
+
+                // Servomotors are synchronized by servoEasing. It's needed to sync the stepper motor with them
+                calculate_sync_speeds(false);
+
+                // Select the desired channel on the TCA9548A
+                tca_select(PCA9685_CHANNEL);
+
+                // Non-blocking servomotors movement
+                ServoEasing::ServoEasingNextPositionArray[0] = desiredJointAngles.q2;
+                ServoEasing::ServoEasingNextPositionArray[1] = desiredJointAngles.q3;
+                ServoEasing::ServoEasingNextPositionArray[2] = desiredJointAngles.q4;
+                setEaseToForAllServosSynchronizeAndStartInterrupt(syncSpeeds.servosSyncSpeed); // Set speed and start interrupt here, we check the end with areInterruptsActive()
+
+                stepper.setAcceleration(accelStepperSync);
+                stepper.moveTo(deg_to_steps(desiredJointAngles.q1));
+                stepper.runToPosition();  // Blocks until it reaches the position
+
+                // Needed for the servos to perform the movement...
+                delay(10);
+
+                // Update the current angles
+                currentJointAngles.q1 = desiredJointAngles.q1;
+                currentJointAngles.q2 = desiredJointAngles.q2;
+                currentJointAngles.q3 = desiredJointAngles.q3;
+                currentJointAngles.q4 = desiredJointAngles.q4;
+
+                // Request remaining angle values from the Python code
+                Serial.println("more");
+
+                } else {
+                    trajectoryCompleted = true;
+                    delay(1000);
+                }
+            }
+        }
 }

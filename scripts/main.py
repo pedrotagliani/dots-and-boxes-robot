@@ -8,8 +8,8 @@ videoSource = 0
 cap = camera.MyCamera('1080p',videoSource)
 
 # Board's configuration
-dotsWidth = 6
-dotsHeight = 6
+dotsWidth = 4
+dotsHeight = 3
 distanceBetweenDots = 3.6 # Distance in centimetre
 markerSizeInCM = 3.8 # Size of the marker in centimetre
 
@@ -48,7 +48,7 @@ if userInput == 's':
     # Just play
     game.play()
 
-    # # Continue the loop as long as the game isn't over
+    # Continue the loop as long as the game isn't over
     # while not game.has_finished():
 
     #     # Detect the board
