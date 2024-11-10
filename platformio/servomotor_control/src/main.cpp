@@ -64,7 +64,7 @@
 // Define the servo pins connected on the PCA9685
 #define SERVO_GRIPPER 12 // Articulation 4 (gripper)
 #define SERVO_ELBOW 13 // Articulation 3 (elbow)
-#define SERVO_SHOULDER 14 // Articulation 2 (shoulder)
+#define SERVO_SHOULDER 2 // Articulation 2 (shoulder)
 
 // https://arminjo.github.io/ServoEasing/ServoEasing_8hpp_source.html#l00473
 // https://naylampmechatronics.com/blog/41_tutorial-modulo-controlador-de-servos-pca9685-con-arduino.html
@@ -87,9 +87,12 @@ float convert_to_degrees(int rawAngle);
 void check_magnet_presence(uint8_t encoderChannel);
 float read_deg_angle(uint8_t encoderChannel);
 void calculate_sync_speeds(bool stepperVelConstant);
-float deg_to_steps(float degAngle);
+int deg_to_steps(float degAngle);
 void read_all_encoders();
-void move_robot();
+void draw_line();
+void go_back_home();
+void calculate_sync_speeds_no_gripper(bool stepperVelConstant);
+void go_to_point_from_home();
 
 // Create the instances of the ServoEasing class
 ServoEasing servoGripper(PCA9685_DEFAULT_ADDRESS);
@@ -99,8 +102,8 @@ ServoEasing servoShoulder(PCA9685_DEFAULT_ADDRESS);
 // Nema 17 stepper pins
 #define STEP_PIN 32
 #define DIR_PIN 19
-#define MS1_PIN 16
-#define MS2_PIN 17
+#define MS1_PIN 17
+#define MS2_PIN 16
 #define MS3_PIN 18
 
 // Create the instance of the AccelStepper class
@@ -120,6 +123,10 @@ float offsetValueGripper;
 #define STEPS_PER_REVOLUTION 1600.0
 #define DEGREES_PER_STEP 0.225
 
+// 1/4 microstepping variables
+// #define STEPS_PER_REVOLUTION 800
+// #define DEGREES_PER_STEP 0.45
+
 
 
 void setup() {
@@ -131,7 +138,7 @@ void setup() {
     pinMode(DIR_ENCODER_GRIPPER, OUTPUT);
     pinMode(DIR_ENCODER_ELBOW, OUTPUT);
     pinMode(DIR_ENCODER_SHOULDER, OUTPUT);
-    pinMode(DIR_ENCODER_BASE, OUTPUT);
+    // pinMode(DIR_ENCODER_BASE, OUTPUT);
 
     // Set the direction polarity for each encoder
     // GND (or LOW) = values increase clockwise
@@ -139,16 +146,16 @@ void setup() {
     digitalWrite(DIR_ENCODER_GRIPPER, LOW);
     digitalWrite(DIR_ENCODER_ELBOW, LOW);
     digitalWrite(DIR_ENCODER_SHOULDER, LOW);
-    digitalWrite(DIR_ENCODER_BASE, HIGH);
+    // digitalWrite(DIR_ENCODER_BASE, HIGH);
 
     tca_select(PCA9685_CHANNEL);  // Select channel 0 on TCA9548A
     // checkI2CConnection(PCA9685_DEFAULT_ADDRESS, &Serial);
 
     // Home position
-    int baseHomeDeg = 90;
-    int shoulderHomeDeg = 80;
-    int elbowHomeDeg = 0;
-    int gripperHomeDeg = 120;
+    float baseHomeDeg = 90.0;
+    float shoulderHomeDeg = 80.0;
+    float elbowHomeDeg = 0.0;
+    float gripperHomeDeg = 120.0;
 
     // attach (int aPin, int aInitialDegreeOrMicrosecond, int aMicrosecondsForServoLowDegree, int aMicrosecondsForServoHighDegree, int aServoLowDegree, int aServoHighDegree)
     servoShoulder.attach(SERVO_SHOULDER, shoulderHomeDeg, SERVO_SHOULDER_MIN, SERVO_SHOULDER_MAX, 0, 180);
@@ -182,8 +189,10 @@ void setup() {
     // The pin will read HIGH when the switch is open
     // When the switch is closed, the pin is pulled to LOW by connecting it to ground
 
+    stepper.setMinPulseWidth(20);
+
     // Set the accelaration to find the starting position (0°)
-    stepper.setAcceleration(500);
+    stepper.setAcceleration(200);
 
     // Move the motor counterclockwise until the limit switch activates (closes)
     while (digitalRead(SWITCH_PIN) == HIGH) {  // While the switch is open (Note the pull-up resistor)
@@ -192,6 +201,15 @@ void setup() {
     }
 
     // Once the switch closes, stop the motor and mark the current position as 0°
+    stepper.setCurrentPosition(0); // Set the current position as 0°
+
+    // The switch position is slightly off from the desired 0° alignment. We'll adjust it manually
+    while (stepper.currentPosition() != (deg_to_steps(3)))  {
+        stepper.setSpeed(60);
+        stepper.runSpeed();
+    }
+
+    // Set the real 0°
     stepper.setCurrentPosition(0); // Set the current position as 0°
 
     delay(1000);
@@ -207,8 +225,8 @@ void setup() {
     // The rotation direction has already been set, so it matches in both the encoders and the motors
 
     // Initial lecture from encoders at home position
-    int initialBaseEncoderRawValue = read_raw_angle(ENCODER_BASE_CHANNEL);
-    float initialBaseEncoderDegValue = convert_to_degrees(initialBaseEncoderRawValue);
+    // int initialBaseEncoderRawValue = read_raw_angle(ENCODER_BASE_CHANNEL);
+    // float initialBaseEncoderDegValue = convert_to_degrees(initialBaseEncoderRawValue);
 
     int initialShoulderEncoderRawValue = read_raw_angle(ENCODER_SHOULDER_CHANNEL);
     float initialShoulderEncoderDegValue = convert_to_degrees(initialShoulderEncoderRawValue);
@@ -222,13 +240,13 @@ void setup() {
     // theta_encoder_adjusted = theta_encoder - offset
 
     // Calulate each offset value
-    offsetValueBase = initialBaseEncoderDegValue - baseHomeDeg;
+    // offsetValueBase = initialBaseEncoderDegValue - baseHomeDeg;
     offsetValueShoulder = initialShoulderEncoderDegValue - shoulderHomeDeg;
     offsetValueElbow = initialElbowEncoderDegValue - elbowHomeDeg;
     offsetValueGripper = initialGripperEncoderDegValue - gripperHomeDeg;
 
     // Check if the encoder values have been adjusted correctly
-    float angBaseAdjusted = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
+    // float angBaseAdjusted = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
     float angShoulderAdjusted = read_deg_angle(ENCODER_SHOULDER_CHANNEL) - offsetValueShoulder;
     float angElbowAdjusted = read_deg_angle(ENCODER_ELBOW_CHANNEL) - offsetValueElbow;
     float angGripperAdjusted = read_deg_angle(ENCODER_GRIPPER_CHANNEL) - offsetValueGripper;
@@ -242,6 +260,8 @@ void setup() {
     // check_magnet_presence(ENCODER_SHOULDER_CHANNEL);
     // check_magnet_presence(ENCODER_ELBOW_CHANNEL);
     // check_magnet_presence(ENCODER_GRIPPER_CHANNEL);
+
+
     
     delay(2000);
 }
@@ -285,9 +305,9 @@ float accelStepperSync;
 
 void loop() {
 
-    servoShoulder.setEasingType(EASE_SINE_IN_OUT);
-    servoElbow.setEasingType(EASE_SINE_IN_OUT);
-    servoGripper.setEasingType(EASE_SINE_IN_OUT);
+    servoShoulder.setEasingType(EASE_QUADRATIC_OUT);
+    servoElbow.setEasingType(EASE_QUADRATIC_OUT);
+    servoGripper.setEasingType(EASE_QUADRATIC_OUT);
 
     // currentJointAngles.q1 = 90.0;
     // currentJointAngles.q2 = 80.0;
@@ -324,8 +344,22 @@ void loop() {
         if (recibedData == "a") {
             read_all_encoders();
         } else if (recibedData == "b") {
-            Serial.println("sendit");
-            move_robot();
+//                             stepper.setAcceleration(200);
+//     stepper.moveTo(stepper.currentPosition() - deg_to_steps(0.7));
+//     // stepper.runToPosition();  // Blocks until it reaches the position
+// stepper.runToPosition();  // Bloquea hasta que alcanza la posición objetivo
+// stepper.setCurrentPosition(deg_to_steps(90));
+            
+            Serial.println("ok");
+            
+
+            go_to_point_from_home();
+        } else if (recibedData == "c") {
+            Serial.println("ok");
+            draw_line();
+        } else if (recibedData == "d") {
+            Serial.println("ok");
+            go_back_home();
         }
 
 
@@ -424,64 +458,6 @@ void loop() {
 
     // stepper.setCurrentPosition(0);
 
-    // if (Serial.available() > 0) {
-    //     String mensaje = Serial.readStringUntil('\n');  // Reads the message until the newline character
-
-    //     if (mensaje == "comenzar") {
-    //         // Sends the joint angles to the Python code
-    //         float q1_lec = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
-    //         float q2_lec = read_deg_angle(ENCODER_SHOULDER_CHANNEL) - offsetValueShoulder;
-    //         float q3_lec = read_deg_angle(ENCODER_ELBOW_CHANNEL) - offsetValueElbow;
-    //         float q4_lec = read_deg_angle(ENCODER_GRIPPER_CHANNEL) - offsetValueGripper;
-
-    //         Serial.print(q1_lec); Serial.print(',');
-    //         Serial.print(q2_lec); Serial.print(',');
-    //         Serial.print(q3_lec); Serial.print(',');
-    //         Serial.print(q4_lec); Serial.println();  // Sends values separated by commas and ends with a newline
-
-    //         // Waits for Python's response with q and qd
-    //         while (Serial.available() == 0) {
-    //             // Waits until data is available
-    //         }
-
-    //         // Reads values from Python
-    //         String datosRecibidos = Serial.readStringUntil('\n');
-    //         sscanf(datosRecibidos.c_str(), "%f,%f,%f,%f", &q1, &q2, &q3, &q4);  // Parsing received data
-
-    //         String datosRecibidos2 = Serial.readStringUntil('\n');
-    //         sscanf(datosRecibidos2.c_str(), "%f,%f,%f,%f", &qd1, &qd2, &qd3, &qd4);  // Parsing received data
-
-    //     } else {
-    //         // Reads values from Python
-    //         String datosRecibidos = Serial.readStringUntil('\n');
-    //         sscanf(datosRecibidos.c_str(), "%f,%f,%f,%f", &q1, &q2, &q3, &q4);  // Parsing received data
-
-    //         String datosRecibidos2 = Serial.readStringUntil('\n');
-    //         sscanf(datosRecibidos2.c_str(), "%f,%f,%f,%f", &qd1, &qd2, &qd3, &qd4);  // Parsing received data
-    //     }
-
-    //     // Commands to move actuators
-    //     servoShoulder.startEaseTo(q2, qd2);
-    //     servoElbow.startEaseTo(q3, qd3);
-    //     servoGripper.startEaseTo(q4, qd4);
-
-    //     stepper.setSpeed(qd1 / DEG_PER_STEP);
-    //     stepper.moveTo((1600.0 / 360) * q1);
-    //     stepper.runToPosition();  // Blocks until it reaches the position
-
-    //     // Before sending data, check if the selected dt has elapsed
-    //     // Use millis() and remain in a loop until the time has passed
-
-    //     float q1_lec2 = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
-    //     float q2_lec2 = read_deg_angle(ENCODER_SHOULDER_CHANNEL) - offsetValueShoulder;
-    //     float q3_lec2 = read_deg_angle(ENCODER_ELBOW_CHANNEL) - offsetValueElbow;
-    //     float q4_lec2 = read_deg_angle(ENCODER_GRIPPER_CHANNEL) - offsetValueGripper;
-
-    //     Serial.print(q1_lec2); Serial.print(',');
-    //     Serial.print(q2_lec2); Serial.print(',');
-    //     Serial.print(q3_lec2); Serial.print(',');
-    //     Serial.print(q4_lec2); Serial.println();  // Sends values separated by commas and ends with a newline
-    // }
 
 
 
@@ -704,7 +680,7 @@ void calculate_sync_speeds(bool stepperVelConstant){
 
 }
 
-float deg_to_steps(float degAngle){
+int deg_to_steps(float degAngle){
     return degAngle*(STEPS_PER_REVOLUTION/360.0);
     // [deg] to [steps]
     // [deg/s] to [steps/s]
@@ -713,18 +689,20 @@ float deg_to_steps(float degAngle){
 
 
 void read_all_encoders(){
-    float q1Lec = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
+    // float q1Lec = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
     float q2Lec = read_deg_angle(ENCODER_SHOULDER_CHANNEL) - offsetValueShoulder;
     float q3Lec = read_deg_angle(ENCODER_ELBOW_CHANNEL) - offsetValueElbow;
     float q4Lec = read_deg_angle(ENCODER_GRIPPER_CHANNEL) - offsetValueGripper;
 
-    Serial.print(q1Lec); Serial.print(",");
+    Serial.print(0); Serial.print(",");
+    // Serial.print(q1Lec); Serial.print(",");
     Serial.print(q2Lec); Serial.print(",");
     Serial.print(q3Lec); Serial.print(",");
     Serial.print(q4Lec); Serial.println();
 }
 
-void move_robot() {
+// All motors move synchronized
+void draw_line() {
     // Create an auxiliar bool variable
     bool trajectoryCompleted = false;
 
@@ -756,7 +734,10 @@ void move_robot() {
 
                 stepper.setAcceleration(accelStepperSync);
                 stepper.moveTo(deg_to_steps(desiredJointAngles.q1));
-                stepper.runToPosition();  // Blocks until it reaches the position
+                // stepper.runToPosition();  // Blocks until it reaches the position
+                while(stepper.currentPosition() != deg_to_steps(desiredJointAngles.q1)){
+                    stepper.run();  
+                }
 
                 // Needed for the servos to perform the movement...
                 delay(10);
@@ -776,4 +757,189 @@ void move_robot() {
                 }
             }
         }
+}
+
+// We are working with global variables (currentJointAngles, desiredJointAngles, syncSpeeds and accelStepperSync) so it's not necessary to pass any arguments to this function
+// This function only takes in consideration the motors from the base, shoulder and elbow
+void calculate_sync_speeds_no_gripper(bool stepperVelConstant){
+
+    // Differentiate between the desired joint angles and the current joint angles
+    // Note that each q will be always positive due to the declared servomotors restrictions
+    float q1DeltaAngle = abs(desiredJointAngles.q1 - currentJointAngles.q1);
+    float q2DeltaAngle = abs(desiredJointAngles.q2 - currentJointAngles.q2);
+    float q3DeltaAngle = abs(desiredJointAngles.q3 - currentJointAngles.q3);
+
+    // q2 and q3 are synchronized by servoEasing library, now it's necessary to sync them with the stepper motor manually
+
+    // q2 and q3 ----> synchronized ----> The slowest one will dictate the overall speed
+    // The one with the longest distance (deltaAngle) will be the slowest
+
+    // If sync, servomotors velocity can't be less than 10 deg/s
+    
+    // if MAX(q2DeltaAngle, q3DeltaAngle, q4DeltaAngle) >= q1DeltaAngle --------------> Servomotors define the speed
+    // if MAX(q2DeltaAngle, q3DeltaAngle, q4DeltaAngle) < q1DeltaAngle --------------> Stepper motor defines the speed
+    // That would be a way of doing it, but we set that servomotors define the speed, and hence the stepper adapts to them
+
+    // Get the slowest servomotor
+    float longestDistanceServo = max(q2DeltaAngle, q3DeltaAngle);
+
+    // Set the servos speed [deg/s]
+    float speedSlowestServo = 24.0;
+
+    // Calculate the it time will take the slowest servo to reach the desired point [s]
+    float movementDurationSlowestServo = longestDistanceServo/speedSlowestServo;
+
+    // Define the speed of the stepper
+    float speedStepperSync;
+
+    if (stepperVelConstant == true) {
+        // Calculate the speed the stepper motor needs to be synchronized with the servomotors [deg/s]
+        float speedStepperSync = q1DeltaAngle/movementDurationSlowestServo;
+
+        // We need the speed of the stepper motor in [steps/second]
+        speedStepperSync = speedStepperSync/DEGREES_PER_STEP;
+
+        // If the speed is constant, the acceleration is equal to zero
+        accelStepperSync = 0;
+    } else {
+        // Calculate the acceleration of the stepper (considering v0 = 0 deg/s)
+        accelStepperSync = (2*(q1DeltaAngle))/(pow(movementDurationSlowestServo,2));
+
+        // Initial speed (v0)
+        speedStepperSync = 0;
+    }
+
+    // WHEN THE LONGEST DISTANCE IS GREATER THAN 20°, THIS DOESN'T WORK SO WELL. THE STEPPER ARRIVES LATE
+
+    syncSpeeds.servosSyncSpeed = speedSlowestServo; // [deg/s]
+    syncSpeeds.stepperSyncSpeed = speedStepperSync; // [steps/s]
+    
+    // [deg/s2] to [step/s2]
+    accelStepperSync = accelStepperSync/DEGREES_PER_STEP;
+
+}
+
+void go_back_home() {
+
+    desiredJointAngles.q1 = 90.0;
+    desiredJointAngles.q2 = 80.0;
+    desiredJointAngles.q3 = 0.0;
+    desiredJointAngles.q4 = 120.0;
+
+    // Servomotors are synchronized by servoEasing. It's needed to sync the stepper motor with them
+    calculate_sync_speeds_no_gripper(false);
+
+    // Select the desired channel on the TCA9548A
+    tca_select(PCA9685_CHANNEL);
+
+    // Blocking servomotor movement
+    // Gripper moves back first
+    servoGripper.easeTo(desiredJointAngles.q4, syncSpeeds.servosSyncSpeed);
+
+    // Non-blocking servomotors movement
+    // The remaining motors move back synchronized
+    // The servomor with the greater distance defines the velocity of synchronization
+    float q2DeltaAngle = abs(desiredJointAngles.q2 - currentJointAngles.q2);
+    float q3DeltaAngle = abs(desiredJointAngles.q3 - currentJointAngles.q3);
+
+    if (q2DeltaAngle >= q3DeltaAngle){
+        servoShoulder.setEaseTo(desiredJointAngles.q2, syncSpeeds.servosSyncSpeed);
+        servoElbow.startEaseToD(desiredJointAngles.q3, servoShoulder.mMillisForCompleteMove);
+
+    } else {
+        servoElbow.setEaseTo(desiredJointAngles.q3, syncSpeeds.servosSyncSpeed);
+        servoShoulder.startEaseToD(desiredJointAngles.q2, servoElbow.mMillisForCompleteMove);
+    }
+    
+    stepper.setAcceleration(accelStepperSync);
+    stepper.moveTo(deg_to_steps(desiredJointAngles.q1));
+    // stepper.runToPosition();  // Blocks until it reaches the position
+    while(stepper.currentPosition() != deg_to_steps(desiredJointAngles.q1)){
+        stepper.run();  
+    }
+
+    // Needed for the servos to perform the movement...
+    delay(10);
+
+    // Update the current angles
+    currentJointAngles.q1 = desiredJointAngles.q1;
+    currentJointAngles.q2 = desiredJointAngles.q2;
+    currentJointAngles.q3 = desiredJointAngles.q3;
+    currentJointAngles.q4 = desiredJointAngles.q4;
+}
+
+// First, the base, shoulder and elbow move synchronized, after they arrive, the gripper moves to its desired position
+ void go_to_point_from_home() {
+    // Create an auxiliar bool variable
+    bool trajectoryCompleted = false;
+
+    while (trajectoryCompleted == false) {
+        if (Serial.available() > 0) {
+
+            // Read the available data in the buffer
+            // The choice 'c' is confirmed, so the following data are the target angles that the motors should reach or a completion notification
+            String movementData = Serial.readStringUntil('\n');
+
+            if (movementData != "completed"){
+
+                // Store the desired angles in the global instance named desiredJointAngles
+                sscanf(movementData.c_str(), "%f,%f,%f,%f", &desiredJointAngles.q1, &desiredJointAngles.q2, &desiredJointAngles.q3, &desiredJointAngles.q4);  // Parsing received data
+
+                // Perform the movements to complete the desired trajectory
+
+                // Servomotors are synchronized by servoEasing. It's needed to sync the stepper motor with them
+                calculate_sync_speeds_no_gripper(false);
+
+                // Select the desired channel on the TCA9548A
+                tca_select(PCA9685_CHANNEL);
+
+                // Non-blocking servomotors movement
+                // The remaining motors move back synchronized
+                // The servomor with the greater distance defines the velocity of synchronization
+                float q2DeltaAngle = abs(desiredJointAngles.q2 - currentJointAngles.q2);
+                float q3DeltaAngle = abs(desiredJointAngles.q3 - currentJointAngles.q3);
+
+                if (q2DeltaAngle >= q3DeltaAngle){
+                    servoShoulder.setEaseTo(desiredJointAngles.q2, syncSpeeds.servosSyncSpeed);
+                    servoElbow.startEaseToD(desiredJointAngles.q3, servoShoulder.mMillisForCompleteMove);
+
+                } else {
+                    servoElbow.setEaseTo(desiredJointAngles.q3, syncSpeeds.servosSyncSpeed);
+                    servoShoulder.startEaseToD(desiredJointAngles.q2, servoElbow.mMillisForCompleteMove);
+                }
+
+                stepper.setAcceleration(accelStepperSync);
+                stepper.moveTo(deg_to_steps(desiredJointAngles.q1));
+                // stepper.runToPosition();  // Blocks until it reaches the position
+                while(stepper.currentPosition() != deg_to_steps(desiredJointAngles.q1)){
+                    stepper.run();  
+                }
+
+                // Blocking servomotor movement
+                // Gripper moves back first
+                servoGripper.easeTo(desiredJointAngles.q4, syncSpeeds.servosSyncSpeed);
+
+                // Needed for the servos to perform the movement...
+                delay(10);
+
+                // Update the current angles
+                currentJointAngles.q1 = desiredJointAngles.q1;
+                currentJointAngles.q2 = desiredJointAngles.q2;
+                currentJointAngles.q3 = desiredJointAngles.q3;
+                currentJointAngles.q4 = desiredJointAngles.q4;
+
+                // Request remaining angle values from the Python code
+                Serial.println("more");
+
+                } else {
+                    trajectoryCompleted = true;
+                    delay(1000);
+                }
+            }
+        }
+}
+
+void correct_home_position(){
+    // checks the position of the stepper that needs to be at 90°
+
 }

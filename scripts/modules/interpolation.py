@@ -1,18 +1,11 @@
 import roboticstoolbox as rtb
 
-def position_quintic_interpolation(initialPoint, finalPoint):
-    numberOfSteps = 20
+def position_quintic_interpolation(initialPoint, finalPoint, numberOfSteps):
 
     # https://petercorke.github.io/robotics-toolbox-python/arm_trajectory.html#roboticstoolbox.tools.trajectory.mtraj
     quinticInterpolation = rtb.tools.trajectory.mtraj(rtb.tools.quintic, initialPoint, finalPoint, numberOfSteps)
 
     return quinticInterpolation.q
-
-
-
-
-
-
 
 
 
@@ -24,6 +17,9 @@ if __name__ == '__main__':
     p0 = [20.47, 0, 27.71, -74.0]
     p1 = [23.4, -5.4, 4.0, 0]
 
-    inter = position_quintic_interpolation(p0, p1)
+    # Number of steps
+    n = 70
 
-    print(inter[1:,:])
+    interp = position_quintic_interpolation(p0, p1, n)
+
+    print(interp)
