@@ -94,6 +94,7 @@ void go_back_home();
 void calculate_sync_speeds_no_gripper(bool stepperVelConstant);
 void go_to_point_from_home();
 void draw_line_no_prev_interp();
+void reset_home_base();
 
 // Create the instances of the ServoEasing class
 ServoEasing servoGripper(PCA9685_DEFAULT_ADDRESS);
@@ -358,6 +359,7 @@ void loop() {
         } else if (recibedData == "d") {
             Serial.println("ok");
             go_back_home();
+            reset_home_base();
         }
 
 
@@ -620,52 +622,95 @@ void calculate_sync_speeds(bool stepperVelConstant){
 
     // q2, q3 and q4 are synchronized by servoEasing library, now it's necessary to sync them with the stepper motor manually
 
-    // q2, q3 and q4 ----> synchronized ----> The slowest one will dictate the overall speed
-    // The one with the longest distance (deltaAngle) will be the slowest
+    // q2, q3 and q4 ----> synchronized ----> The one with the greater distance (deltaAngle) will dictate the overall speed
 
     // If sync, servomotors velocity can't be less than 10 deg/s
-    
+
     // if MAX(q2DeltaAngle, q3DeltaAngle, q4DeltaAngle) >= q1DeltaAngle --------------> Servomotors define the speed
     // if MAX(q2DeltaAngle, q3DeltaAngle, q4DeltaAngle) < q1DeltaAngle --------------> Stepper motor defines the speed
     // That would be a way of doing it, but we set that servomotors define the speed, and hence the stepper adapts to them
 
-    // Get the slowest servomotor
+    // Get the servo with the longest distance
     float longestDistanceServo = max(q2DeltaAngle, q3DeltaAngle);
     longestDistanceServo = max(longestDistanceServo, q4DeltaAngle);
 
-    // Set the servos speed [deg/s]
-    float speedSlowestServo = 24.0;
-
-    // Calculate the it time will take the slowest servo to reach the desired point [s]
-    float movementDurationSlowestServo = longestDistanceServo/speedSlowestServo;
-
-    // Define the speed of the stepper
+    // Variable declarations
+    float speedLongestDistanceServo;
     float speedStepperSync;
 
-    if (stepperVelConstant == true) {
-        // Calculate the speed the stepper motor needs to be synchronized with the servomotors [deg/s]
-        float speedStepperSync = q1DeltaAngle/movementDurationSlowestServo;
+    // Servomotors define the speed
+    if (longestDistanceServo >= q1DeltaAngle) {
 
-        // We need the speed of the stepper motor in [steps/second]
-        speedStepperSync = speedStepperSync/DEGREES_PER_STEP;
+        // Set the servos speed [deg/s]
+        speedLongestDistanceServo = 24.0;
 
-        // If the speed is constant, the acceleration is equal to zero
-        accelStepperSync = 0;
+        // Calculate the it time will take the slowest servo to reach the desired point [s]
+        float movementDurationSLongestDistanceServo = longestDistanceServo/speedLongestDistanceServo;
+
+        if (stepperVelConstant == true) {
+            // Calculate the speed the stepper motor needs to be synchronized with the servomotors [deg/s]
+            float speedStepperSync = q1DeltaAngle/movementDurationSLongestDistanceServo;
+
+            // We need the speed of the stepper motor in [steps/second]
+            speedStepperSync = speedStepperSync/DEGREES_PER_STEP;
+
+            // If the speed is constant, the acceleration is equal to zero
+            accelStepperSync = 0;
+        } else {
+            // Calculate the acceleration of the stepper (considering v0 = 0 deg/s)
+            accelStepperSync = (2*(q1DeltaAngle))/(pow(movementDurationSLongestDistanceServo,2));
+
+            // Initial speed (v0)
+            speedStepperSync = 0;
+        }
+
+        // WHEN THE LONGEST DISTANCE IS GREATER THAN 20°, THIS DOESN'T WORK SO WELL. THE STEPPER ARRIVES LATE
+
+        syncSpeeds.servosSyncSpeed = speedLongestDistanceServo; // [deg/s]
+        syncSpeeds.stepperSyncSpeed = speedStepperSync; // [steps/s]
+        
+        // [deg/s2] to [step/s2]
+        accelStepperSync = accelStepperSync/DEGREES_PER_STEP;
+    
+    // Stepper motor defines the speed
     } else {
-        // Calculate the acceleration of the stepper (considering v0 = 0 deg/s)
-        accelStepperSync = (2*(q1DeltaAngle))/(pow(movementDurationSlowestServo,2));
+        // Set the stepper speed [deg/s]
+        speedStepperSync = 10.0;
 
-        // Initial speed (v0)
-        speedStepperSync = 0;
+        // Calculate the time required for the stepper to complete the movement [s]
+        float movementDurationStepper = q1DeltaAngle / speedStepperSync;
+        
+        // Calculate the required speed for the longest distance servo to reach the desired position in sync with the stepper
+        // Keeping in mind the remaining servos will still adjust to the slower one
+        speedLongestDistanceServo = longestDistanceServo / movementDurationStepper;
+
+        // Ensure servo speeds don’t fall below 20 deg/s
+        float minServoSpeed = 20.0;
+        speedLongestDistanceServo = max({speedLongestDistanceServo, minServoSpeed});
+        // If minServoSpeed is set, there will be no synchronization, but it's the only way motors will move
+
+        if (stepperVelConstant == true) {
+            // We need the speed of the stepper motor in [steps/second]
+            speedStepperSync = speedStepperSync/DEGREES_PER_STEP;
+
+            // If the speed is constant, the acceleration is equal to zero
+            accelStepperSync = 0;
+        } else {
+            // Calculate the acceleration of the stepper (considering v0 = 0 deg/s)
+            accelStepperSync = (2*(q1DeltaAngle))/(pow(movementDurationStepper,2));
+
+            // Initial speed (v0)
+            speedStepperSync = 0;
+        }
+
+        syncSpeeds.servosSyncSpeed = speedLongestDistanceServo; // [deg/s]
+        syncSpeeds.stepperSyncSpeed = speedStepperSync; // [steps/s]
+        
+        // [deg/s2] to [step/s2]
+        accelStepperSync = accelStepperSync/DEGREES_PER_STEP;
+
     }
 
-    // WHEN THE LONGEST DISTANCE IS GREATER THAN 20°, THIS DOESN'T WORK SO WELL. THE STEPPER ARRIVES LATE
-
-    syncSpeeds.servosSyncSpeed = speedSlowestServo; // [deg/s]
-    syncSpeeds.stepperSyncSpeed = speedStepperSync; // [steps/s]
-    
-    // [deg/s2] to [step/s2]
-    accelStepperSync = accelStepperSync/DEGREES_PER_STEP;
 
 }
 
@@ -770,11 +815,10 @@ void calculate_sync_speeds_no_gripper(bool stepperVelConstant){
 
     // q2 and q3 are synchronized by servoEasing library, now it's necessary to sync them with the stepper motor manually
 
-    // q2 and q3 ----> synchronized ----> The slowest one will dictate the overall speed
-    // The one with the longest distance (deltaAngle) will be the slowest
+    // q2 and q3 ----> synchronized ----> The one with the longest distance will dictate the overall speed
 
     // If sync, servomotors velocity can't be less than 10 deg/s
-    
+
     // if MAX(q2DeltaAngle, q3DeltaAngle, q4DeltaAngle) >= q1DeltaAngle --------------> Servomotors define the speed
     // if MAX(q2DeltaAngle, q3DeltaAngle, q4DeltaAngle) < q1DeltaAngle --------------> Stepper motor defines the speed
     // That would be a way of doing it, but we set that servomotors define the speed, and hence the stepper adapts to them
@@ -783,17 +827,17 @@ void calculate_sync_speeds_no_gripper(bool stepperVelConstant){
     float longestDistanceServo = max(q2DeltaAngle, q3DeltaAngle);
 
     // Set the servos speed [deg/s]
-    float speedSlowestServo = 24.0;
+    float speedLongestDistanceServo = 24.0;
 
     // Calculate the it time will take the slowest servo to reach the desired point [s]
-    float movementDurationSlowestServo = longestDistanceServo/speedSlowestServo;
+    float movementDurationLongestDistanceServo = longestDistanceServo/speedLongestDistanceServo;
 
     // Define the speed of the stepper
     float speedStepperSync;
 
     if (stepperVelConstant == true) {
         // Calculate the speed the stepper motor needs to be synchronized with the servomotors [deg/s]
-        float speedStepperSync = q1DeltaAngle/movementDurationSlowestServo;
+        float speedStepperSync = q1DeltaAngle/movementDurationLongestDistanceServo;
 
         // We need the speed of the stepper motor in [steps/second]
         speedStepperSync = speedStepperSync/DEGREES_PER_STEP;
@@ -802,7 +846,7 @@ void calculate_sync_speeds_no_gripper(bool stepperVelConstant){
         accelStepperSync = 0;
     } else {
         // Calculate the acceleration of the stepper (considering v0 = 0 deg/s)
-        accelStepperSync = (2*(q1DeltaAngle))/(pow(movementDurationSlowestServo,2));
+        accelStepperSync = (2*(q1DeltaAngle))/(pow(movementDurationLongestDistanceServo,2));
 
         // Initial speed (v0)
         speedStepperSync = 0;
@@ -810,7 +854,7 @@ void calculate_sync_speeds_no_gripper(bool stepperVelConstant){
 
     // WHEN THE LONGEST DISTANCE IS GREATER THAN 20°, THIS DOESN'T WORK SO WELL. THE STEPPER ARRIVES LATE
 
-    syncSpeeds.servosSyncSpeed = speedSlowestServo; // [deg/s]
+    syncSpeeds.servosSyncSpeed = speedLongestDistanceServo; // [deg/s]
     syncSpeeds.stepperSyncSpeed = speedStepperSync; // [steps/s]
     
     // [deg/s2] to [step/s2]
@@ -1014,6 +1058,45 @@ void draw_line_no_prev_interp() {
         }
 }
 
+void reset_home_base() {
+
+    // Move fast to a position near the switch
+    stepper.setAcceleration(500);
+    stepper.moveTo(deg_to_steps(5));
+    while (stepper.currentPosition() != (deg_to_steps(14)))  {
+        stepper.run();
+    }
+
+    // Set the accelaration to find the starting position (0°)
+    stepper.setAcceleration(200);
+
+    // Slowly rotate the motor counterclockwise until the limit switch activates (closes)
+    while (digitalRead(SWITCH_PIN) == HIGH) {  // While the switch is open (Note the pull-up resistor)
+        stepper.moveTo(stepper.currentPosition() - 1); // Move one step counterclockwise
+        stepper.run(); // Execute the movement
+    }
+
+    // Once the switch closes, stop the motor and mark the current position as 0°
+    stepper.setCurrentPosition(0); // Set the current position as 0°
+
+    // The switch position is slightly off from the desired 0° alignment. We'll adjust it manually
+    stepper.setAcceleration(80);
+    stepper.moveTo(deg_to_steps(3));
+    while (stepper.currentPosition() != (deg_to_steps(3)))  {
+        stepper.run();
+    }
+
+    // Set the real 0°
+    stepper.setCurrentPosition(0); // Set the current position as 0°
+
+    // Move the stepper motor to home position (90°)
+    // DO LATER ------> Read the encoder to confirm if the motor has reached 90°
+    stepper.setAcceleration(500);
+    stepper.moveTo(deg_to_steps(90.0));
+    while (stepper.currentPosition() != (deg_to_steps(90.0)))  {
+        stepper.run();
+    }
+}
 
 
 

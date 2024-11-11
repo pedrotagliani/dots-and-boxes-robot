@@ -1,8 +1,8 @@
 import serial
 import time
-from interpolation import position_quintic_interpolation
-from inverse_kinematics import inverse_kinematics
-from forward_kinematics import forward_kinematics
+from modules.interpolation import position_quintic_interpolation
+from modules.inverse_kinematics import inverse_kinematics
+from modules.forward_kinematics import forward_kinematics
 from math import radians
 import numpy as np
 
@@ -242,7 +242,7 @@ def make_robot_play(initialPoint, finalPoint):
 
         print("Se completó el movimiento del robot.")
         
-        # Close serial port
+        # # Close serial port
         ser.close()
     
     else:
@@ -271,30 +271,33 @@ if __name__ == '__main__':
 
     gameArray = np.array(
         # First row
-        [[[23.4 - 0.7, -5.4 + 1.3,  z],
-        [23.4 -0.7, -1.8 + 1.7,  z],
-        [23.4,  1.8,  z],
-        [23.4,  5.4, z]],
+        [[[23.4 - 1.1, -5.4 + 1.6,  z-0.3],
+        [23.4 -1.2, -1.8 + 1.7,  z - 0.4],
+        [23.4 - 1.2,  1.8 + 1.6,  z - 0.3],
+        [23.4 - 1.2,  5.4 + 1.6, z - 0.3]],
 
         # Second row
-        [[27.0 - 0.8, -5.4 + 1.7,  z],
-        [27.0 - 0.7, -1.8 + 1.9,  z + 0.4],
-        [27.0,  1.8,  z],
-        [27.0,  5.4,  z]],
+        [[27.0 - 1.2, -5.4 + 1.7,  z - 0.4],
+        [27.0 - 1.3, -1.8 + 1.8,  z - 0.4],
+        [27.0 - 1.3,  1.8 + 1.8,  z - 0.4],
+        [27.0 - 1.5,  5.4 + 1.8,  z - 0.4]],
 
         # Third row
-        [[30.6 - 1.2, -5.4 + 2.0,  z - 0.4],
-        [30.6, -1.8,  z],
-        [30.6,  1.8,  z],
-        [30.6,  5.4,  z]]]
+        [[30.6 - 1.6, -5.4 + 2.1,  z - 0.6],
+        [30.6 - 1.8, -1.8 + 2.1,  z - 0.6],
+        [30.6 - 1.8,  1.8 + 2.1,  z - 0.6],
+        [30.6 - 2.1,  5.4 + 2.1,  z - 0.6]]]
     )
 
     pitchAngle = 0.0
 
-    p0 = list(gameArray[0][1])
+    p0 = list(gameArray[0][3])
     p0.append(pitchAngle)
 
-    p1 = list(gameArray[1][1])
+    p1 = list(gameArray[1][3])
     p1.append(pitchAngle)
  
     make_robot_play(p0, p1)
+
+    # print(inverse_kinematics(p0[0], p0[1], p0[2], radians(p0[3])))
+    # print(inverse_kinematics(p1[0], p1[1], p1[2], radians(p1[3])))

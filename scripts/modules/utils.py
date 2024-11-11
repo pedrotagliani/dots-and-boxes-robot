@@ -134,7 +134,7 @@ def dnb_conv_to_points_index(robotMovement, horizontalLinesMatrix, verticalLines
 
 def crop_image(point1, point2, lineType, frameCopyToCut, resolution, boardNumRows, boardNumCols):
 
-    # frameCopyToCut = frame.copy()
+    # frameCopyToCut = frameCopyToCut.copy()
     # We don't want to make a copy to keep rectangles related to frameCopyToCut. A copy would make the cut independent of the whole image.
 
     cropConstant = (boardNumRows + boardNumCols) / 2
@@ -227,8 +227,9 @@ def detect_lines(thresholdedImage):
 
     rho = 1              # Distance resolution of the accumulator in pixels
     theta = np.pi/180    # Angle resolution of the accumulator in radians
+    # threshold = 120       # Only lines that are greater than threshold will be returned
     threshold = 120       # Only lines that are greater than threshold will be returned
-    minLineLength = maxDimensionValue*0.7   # Line segments shorter than that are rejected
+    minLineLength = maxDimensionValue*0.3   # Line segments shorter than that are rejected
     maxLineGap = 5     # Maximum allowed gap between points on the same line to link them
 
     # rho = 1              # Distance resolution of the accumulator in pixels
