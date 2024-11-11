@@ -93,6 +93,7 @@ void draw_line();
 void go_back_home();
 void calculate_sync_speeds_no_gripper(bool stepperVelConstant);
 void go_to_point_from_home();
+void draw_line_no_prev_interp();
 
 // Create the instances of the ServoEasing class
 ServoEasing servoGripper(PCA9685_DEFAULT_ADDRESS);
@@ -168,7 +169,7 @@ void setup() {
     // servoShoulder.attach(SERVO_SHOULDER, SERVO_SHOULDER_MIN, SERVO_SHOULDER_MAX, 0, 180);
 
     // Wait for servos to reach start position
-    delay(4000);
+    delay(2000);
 
     // Set the maximum speed of the stepper
     stepper.setMaxSpeed(2000.0);
@@ -204,21 +205,21 @@ void setup() {
     stepper.setCurrentPosition(0); // Set the current position as 0°
 
     // The switch position is slightly off from the desired 0° alignment. We'll adjust it manually
+    stepper.setAcceleration(80);
+    stepper.moveTo(deg_to_steps(3));
     while (stepper.currentPosition() != (deg_to_steps(3)))  {
-        stepper.setSpeed(60);
-        stepper.runSpeed();
+        stepper.run();
     }
 
     // Set the real 0°
     stepper.setCurrentPosition(0); // Set the current position as 0°
 
-    delay(1000);
-
     // Move the stepper motor to home position (90°)
     // DO LATER ------> Read the encoder to confirm if the motor has reached 90°
+    stepper.setAcceleration(500);
+    stepper.moveTo(deg_to_steps(baseHomeDeg));
     while (stepper.currentPosition() != (deg_to_steps(baseHomeDeg)))  {
-        stepper.setSpeed(60);
-        stepper.runSpeed();
+        stepper.run();
     }
 
     // Once the robot is positioned at the home location, adjust the encoder values to align with the robot's defined rotation axes
@@ -263,7 +264,6 @@ void setup() {
 
 
     
-    delay(2000);
 }
 
 
@@ -349,27 +349,16 @@ void loop() {
 //     // stepper.runToPosition();  // Blocks until it reaches the position
 // stepper.runToPosition();  // Bloquea hasta que alcanza la posición objetivo
 // stepper.setCurrentPosition(deg_to_steps(90));
-            
             Serial.println("ok");
-            
-
             go_to_point_from_home();
         } else if (recibedData == "c") {
             Serial.println("ok");
-            draw_line();
+            // draw_line();
+            draw_line_no_prev_interp();
         } else if (recibedData == "d") {
             Serial.println("ok");
             go_back_home();
         }
-
-
-
-
-
-
-
-
-
 
 
 
@@ -681,7 +670,7 @@ void calculate_sync_speeds(bool stepperVelConstant){
 }
 
 int deg_to_steps(float degAngle){
-    return degAngle*(STEPS_PER_REVOLUTION/360.0);
+    return round(degAngle*(STEPS_PER_REVOLUTION/360.0));
     // [deg] to [steps]
     // [deg/s] to [steps/s]
     // [degs/s2] to [steps/s2]
@@ -739,6 +728,16 @@ void draw_line() {
                     stepper.run();  
                 }
 
+                // If the stepper has a short target distance (e.g., 89° to 90°), it may reach its target too quickly,
+                // preventing the servomotors from reaching their target positions due to the stepper's while loop ending early
+                // To avoid this, we can add a protection mechanism to ensure that the servomotors have completed their movements before proceeding
+                // This may only happen when the robot draws a line, because the distances in general are short for certain articulations
+
+                while (ServoEasing::areInterruptsActive()) {
+                    true;
+                }
+
+                
                 // Needed for the servos to perform the movement...
                 delay(10);
 
@@ -753,7 +752,7 @@ void draw_line() {
 
                 } else {
                     trajectoryCompleted = true;
-                    delay(1000);
+                    // delay(1000);
                 }
             }
         }
@@ -858,6 +857,10 @@ void go_back_home() {
         stepper.run();  
     }
 
+    while (ServoEasing::areInterruptsActive()) {
+        true;
+    }
+
     // Needed for the servos to perform the movement...
     delay(10);
 
@@ -866,20 +869,23 @@ void go_back_home() {
     currentJointAngles.q2 = desiredJointAngles.q2;
     currentJointAngles.q3 = desiredJointAngles.q3;
     currentJointAngles.q4 = desiredJointAngles.q4;
+    
+    Serial.println("done");
 }
 
 // First, the base, shoulder and elbow move synchronized, after they arrive, the gripper moves to its desired position
- void go_to_point_from_home() {
+void go_to_point_from_home() {
     // Create an auxiliar bool variable
     bool trajectoryCompleted = false;
 
     while (trajectoryCompleted == false) {
+
         if (Serial.available() > 0) {
 
             // Read the available data in the buffer
             // The choice 'c' is confirmed, so the following data are the target angles that the motors should reach or a completion notification
             String movementData = Serial.readStringUntil('\n');
-
+            
             if (movementData != "completed"){
 
                 // Store the desired angles in the global instance named desiredJointAngles
@@ -889,7 +895,6 @@ void go_back_home() {
 
                 // Servomotors are synchronized by servoEasing. It's needed to sync the stepper motor with them
                 calculate_sync_speeds_no_gripper(false);
-
                 // Select the desired channel on the TCA9548A
                 tca_select(PCA9685_CHANNEL);
 
@@ -902,22 +907,24 @@ void go_back_home() {
                 if (q2DeltaAngle >= q3DeltaAngle){
                     servoShoulder.setEaseTo(desiredJointAngles.q2, syncSpeeds.servosSyncSpeed);
                     servoElbow.startEaseToD(desiredJointAngles.q3, servoShoulder.mMillisForCompleteMove);
-
                 } else {
                     servoElbow.setEaseTo(desiredJointAngles.q3, syncSpeeds.servosSyncSpeed);
                     servoShoulder.startEaseToD(desiredJointAngles.q2, servoElbow.mMillisForCompleteMove);
                 }
-
+                
                 stepper.setAcceleration(accelStepperSync);
                 stepper.moveTo(deg_to_steps(desiredJointAngles.q1));
                 // stepper.runToPosition();  // Blocks until it reaches the position
                 while(stepper.currentPosition() != deg_to_steps(desiredJointAngles.q1)){
                     stepper.run();  
                 }
-
                 // Blocking servomotor movement
                 // Gripper moves back first
                 servoGripper.easeTo(desiredJointAngles.q4, syncSpeeds.servosSyncSpeed);
+
+                while (ServoEasing::areInterruptsActive()) {
+                    true;
+                }
 
                 // Needed for the servos to perform the movement...
                 delay(10);
@@ -929,15 +936,90 @@ void go_back_home() {
                 currentJointAngles.q4 = desiredJointAngles.q4;
 
                 // Request remaining angle values from the Python code
-                Serial.println("more");
+                Serial.println("done");
+            } else {
+                trajectoryCompleted = true;
+                // delay(1000);
+            }
+        }
+
+    }
+}
+
+// All motors move synchronized
+void draw_line_no_prev_interp() {
+    // Create an auxiliar bool variable
+    bool trajectoryCompleted = false;
+
+    while (trajectoryCompleted == false) {
+        if (Serial.available() > 0) {
+
+            // Read the available data in the buffer
+            // The choice 'b' is confirmed, so the following data are the target angles that the motors should reach or a completion notification
+            String movementData = Serial.readStringUntil('\n');
+
+            if (movementData != "completed"){
+
+                // Store the desired angles in the global instance named desiredJointAngles
+                sscanf(movementData.c_str(), "%f,%f,%f,%f", &desiredJointAngles.q1, &desiredJointAngles.q2, &desiredJointAngles.q3, &desiredJointAngles.q4);  // Parsing received data
+
+                // Perform the movements to complete the desired trajectory
+
+                // Servomotors are synchronized by servoEasing. It's needed to sync the stepper motor with them
+                calculate_sync_speeds(false);
+
+                // Select the desired channel on the TCA9548A
+                tca_select(PCA9685_CHANNEL);
+
+                // Non-blocking servomotors movement
+                ServoEasing::ServoEasingNextPositionArray[0] = desiredJointAngles.q2;
+                ServoEasing::ServoEasingNextPositionArray[1] = desiredJointAngles.q3;
+                ServoEasing::ServoEasingNextPositionArray[2] = desiredJointAngles.q4;
+                setEaseToForAllServosSynchronizeAndStartInterrupt(syncSpeeds.servosSyncSpeed); // Set speed and start interrupt here, we check the end with areInterruptsActive()
+
+                stepper.setAcceleration(accelStepperSync);
+                stepper.moveTo(deg_to_steps(desiredJointAngles.q1));
+                // stepper.runToPosition();  // Blocks until it reaches the position
+                while(stepper.currentPosition() != deg_to_steps(desiredJointAngles.q1)){
+                    stepper.run();  
+                }
+
+                // If the stepper has a short target distance (e.g., 89° to 90°), it may reach its target too quickly,
+                // preventing the servomotors from reaching their target positions due to the stepper's while loop ending early
+                // To avoid this, we can add a protection mechanism to ensure that the servomotors have completed their movements before proceeding
+                // This may only happen when the robot draws a line, because the distances in general are short for certain articulations
+
+                while (ServoEasing::areInterruptsActive()) {
+                    true;
+                }
+
+
+                // Needed for the servos to perform the movement...
+                delay(10);
+
+                // Update the current angles
+                currentJointAngles.q1 = desiredJointAngles.q1;
+                currentJointAngles.q2 = desiredJointAngles.q2;
+                currentJointAngles.q3 = desiredJointAngles.q3;
+                currentJointAngles.q4 = desiredJointAngles.q4;
+
+                // Request remaining angle values from the Python code
+                Serial.println("done");
 
                 } else {
                     trajectoryCompleted = true;
-                    delay(1000);
+                    // delay(1000);
                 }
             }
         }
 }
+
+
+
+
+
+
+
 
 void correct_home_position(){
     // checks the position of the stepper that needs to be at 90°
