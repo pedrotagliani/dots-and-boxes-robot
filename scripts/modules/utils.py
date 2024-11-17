@@ -184,9 +184,9 @@ def crop_image(point1, point2, lineType, frameCopyToCut, resolution, boardNumRow
     # Return the cropped image
     return currentRectangle, topLeftRectangle, bottomRightRectangle
 
-def apply_thresholding(cropedImage):
+def apply_thresholding(croppedImage):
     # Convert to grayscale
-    gray = cv2.cvtColor(cropedImage, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(croppedImage, cv2.COLOR_BGR2GRAY)
 
     # Apply Otsu's automatic thresholding
     (T, threshInv) = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
@@ -227,16 +227,9 @@ def detect_lines(thresholdedImage):
 
     rho = 1              # Distance resolution of the accumulator in pixels
     theta = np.pi/180    # Angle resolution of the accumulator in radians
-    # threshold = 120       # Only lines that are greater than threshold will be returned
-    threshold = 120       # Only lines that are greater than threshold will be returned
-    minLineLength = maxDimensionValue*0.3   # Line segments shorter than that are rejected
+    threshold = 100       # Only lines that are greater than threshold will be returned
+    minLineLength = maxDimensionValue*0.6   # Line segments shorter than that are rejected
     maxLineGap = 5     # Maximum allowed gap between points on the same line to link them
-
-    # rho = 1              # Distance resolution of the accumulator in pixels
-    # theta = np.pi/180    # Angle resolution of the accumulator in radians
-    # threshold = 100       # Only lines that are greater than threshold will be returned
-    # minLineLength = maxDimensionValue*0.5   # Line segments shorter than that are rejected
-    # maxLineGap = 5     # Maximum allowed gap between points on the same line to link them
 
     linesP = cv2.HoughLinesP(thresholdedImage, rho = rho, theta = theta, threshold = threshold, minLineLength = minLineLength, maxLineGap = maxLineGap)
 
@@ -286,3 +279,39 @@ def get_distance_matrix_from_robot_to_points(xbp1, ybp1, zbp, dotsHeight, dotsWi
     xAux2 = 0
     
     return tbpointsMatrix
+
+def red_color_detection(croppedImage):
+
+    hsv_image = cv2.cvtColor(croppedImage, cv2.COLOR_BGR2HSV)
+
+    # Lower red range
+    lower_red1 = np.array([0, 100, 100])
+    upper_red1 = np.array([10, 255, 255])
+
+    # Upper red range
+    lower_red2 = np.array([170, 100, 100])
+    upper_red2 = np.array([180, 255, 255])
+
+    # lower_red1 = np.array([0, 100, 70])
+    # upper_red1 = np.array([10, 255, 255])
+    # lower_red2 = np.array([170, 100, 70])
+    # upper_red2 = np.array([180, 255, 255])
+
+    mask1 = cv2.inRange(hsv_image, lower_red1, upper_red1)
+    mask2 = cv2.inRange(hsv_image, lower_red2, upper_red2)
+    red_mask = mask1 | mask2
+
+    red_parts = cv2.bitwise_and(croppedImage, croppedImage, mask=red_mask)
+
+    return red_parts
+
+def apply_thresholding_no_inv(redImage):
+    # Convert to grayscale
+    gray = cv2.cvtColor(redImage, cv2.COLOR_BGR2GRAY)
+
+    # Apply Otsu's automatic thresholding
+    (T, thresh) = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+
+    # Return the thresholded image
+    return thresh
+

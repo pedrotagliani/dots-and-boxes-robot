@@ -73,12 +73,12 @@
 #define UNITS_TO_MICROSECONDS_CONSTANT 4.8828
 
 // Define minimum and maximum pulse width for the servomotors specified in microseconds
-#define SERVO_GRIPPER_MIN 172*UNITS_TO_MICROSECONDS_CONSTANT
-#define SERVO_GRIPPER_MAX 548*UNITS_TO_MICROSECONDS_CONSTANT
+#define SERVO_GRIPPER_MIN 176*UNITS_TO_MICROSECONDS_CONSTANT
+#define SERVO_GRIPPER_MAX 552*UNITS_TO_MICROSECONDS_CONSTANT
 #define SERVO_ELBOW_MIN 100*UNITS_TO_MICROSECONDS_CONSTANT
 #define SERVO_ELBOW_MAX 468*UNITS_TO_MICROSECONDS_CONSTANT
-#define SERVO_SHOULDER_MIN 114*UNITS_TO_MICROSECONDS_CONSTANT
-#define SERVO_SHOULDER_MAX 474*UNITS_TO_MICROSECONDS_CONSTANT
+#define SERVO_SHOULDER_MIN 90*UNITS_TO_MICROSECONDS_CONSTANT
+#define SERVO_SHOULDER_MAX 482*UNITS_TO_MICROSECONDS_CONSTANT
 
 // Functions declaration
 void tca_select(uint8_t channel);
@@ -140,7 +140,7 @@ void setup() {
     pinMode(DIR_ENCODER_GRIPPER, OUTPUT);
     pinMode(DIR_ENCODER_ELBOW, OUTPUT);
     pinMode(DIR_ENCODER_SHOULDER, OUTPUT);
-    // pinMode(DIR_ENCODER_BASE, OUTPUT);
+    pinMode(DIR_ENCODER_BASE, OUTPUT);
 
     // Set the direction polarity for each encoder
     // GND (or LOW) = values increase clockwise
@@ -148,7 +148,7 @@ void setup() {
     digitalWrite(DIR_ENCODER_GRIPPER, LOW);
     digitalWrite(DIR_ENCODER_ELBOW, LOW);
     digitalWrite(DIR_ENCODER_SHOULDER, LOW);
-    // digitalWrite(DIR_ENCODER_BASE, HIGH);
+    digitalWrite(DIR_ENCODER_BASE, HIGH);
 
     tca_select(PCA9685_CHANNEL);  // Select channel 0 on TCA9548A
     // checkI2CConnection(PCA9685_DEFAULT_ADDRESS, &Serial);
@@ -207,8 +207,8 @@ void setup() {
 
     // The switch position is slightly off from the desired 0° alignment. We'll adjust it manually
     stepper.setAcceleration(80);
-    stepper.moveTo(deg_to_steps(3));
-    while (stepper.currentPosition() != (deg_to_steps(3)))  {
+    stepper.moveTo(deg_to_steps(5));
+    while (stepper.currentPosition() != (deg_to_steps(5)))  {
         stepper.run();
     }
 
@@ -227,8 +227,8 @@ void setup() {
     // The rotation direction has already been set, so it matches in both the encoders and the motors
 
     // Initial lecture from encoders at home position
-    // int initialBaseEncoderRawValue = read_raw_angle(ENCODER_BASE_CHANNEL);
-    // float initialBaseEncoderDegValue = convert_to_degrees(initialBaseEncoderRawValue);
+    int initialBaseEncoderRawValue = read_raw_angle(ENCODER_BASE_CHANNEL);
+    float initialBaseEncoderDegValue = convert_to_degrees(initialBaseEncoderRawValue);
 
     int initialShoulderEncoderRawValue = read_raw_angle(ENCODER_SHOULDER_CHANNEL);
     float initialShoulderEncoderDegValue = convert_to_degrees(initialShoulderEncoderRawValue);
@@ -242,13 +242,13 @@ void setup() {
     // theta_encoder_adjusted = theta_encoder - offset
 
     // Calulate each offset value
-    // offsetValueBase = initialBaseEncoderDegValue - baseHomeDeg;
+    offsetValueBase = initialBaseEncoderDegValue - baseHomeDeg;
     offsetValueShoulder = initialShoulderEncoderDegValue - shoulderHomeDeg;
     offsetValueElbow = initialElbowEncoderDegValue - elbowHomeDeg;
     offsetValueGripper = initialGripperEncoderDegValue - gripperHomeDeg;
 
     // Check if the encoder values have been adjusted correctly
-    // float angBaseAdjusted = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
+    float angBaseAdjusted = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
     float angShoulderAdjusted = read_deg_angle(ENCODER_SHOULDER_CHANNEL) - offsetValueShoulder;
     float angElbowAdjusted = read_deg_angle(ENCODER_ELBOW_CHANNEL) - offsetValueElbow;
     float angGripperAdjusted = read_deg_angle(ENCODER_GRIPPER_CHANNEL) - offsetValueGripper;
@@ -262,9 +262,6 @@ void setup() {
     // check_magnet_presence(ENCODER_SHOULDER_CHANNEL);
     // check_magnet_presence(ENCODER_ELBOW_CHANNEL);
     // check_magnet_presence(ENCODER_GRIPPER_CHANNEL);
-
-
-    
 }
 
 
@@ -306,9 +303,9 @@ float accelStepperSync;
 
 void loop() {
 
-    servoShoulder.setEasingType(EASE_QUADRATIC_OUT);
-    servoElbow.setEasingType(EASE_QUADRATIC_OUT);
-    servoGripper.setEasingType(EASE_QUADRATIC_OUT);
+    // servoShoulder.setEasingType(EASE_QUADRATIC_OUT);
+    // servoElbow.setEasingType(EASE_QUADRATIC_OUT);
+    // servoGripper.setEasingType(EASE_QUADRATIC_OUT);
 
     // currentJointAngles.q1 = 90.0;
     // currentJointAngles.q2 = 80.0;
@@ -336,7 +333,6 @@ void loop() {
 
     // delay(10);
 
-
     if (Serial.available() > 0) {
         
         // Read the available data in the buffer
@@ -345,11 +341,6 @@ void loop() {
         if (recibedData == "a") {
             read_all_encoders();
         } else if (recibedData == "b") {
-//                             stepper.setAcceleration(200);
-//     stepper.moveTo(stepper.currentPosition() - deg_to_steps(0.7));
-//     // stepper.runToPosition();  // Blocks until it reaches the position
-// stepper.runToPosition();  // Bloquea hasta que alcanza la posición objetivo
-// stepper.setCurrentPosition(deg_to_steps(90));
             Serial.println("ok");
             go_to_point_from_home();
         } else if (recibedData == "c") {
@@ -360,12 +351,29 @@ void loop() {
             Serial.println("ok");
             go_back_home();
             reset_home_base();
+        } else if (recibedData == "e") {
+            Serial.println("on");
+        } else if (recibedData == "f") {
+            Serial.println("ok");
+            draw_line();
         }
-
-
-
     }
 
+    // tca_select(PCA9685_CHANNEL);
+    // servoElbow.easeTo(40,16);
+    // servoGripper.easeTo(0,16);
+    // delay(5000);
+    // servoGripper.easeTo(90,16);
+
+    // servoShoulder.easeTo(0,16);
+    // servoShoulder.easeTo(90,16);
+
+
+    // while (true)
+    // {
+    //     /* code */
+    // }
+    
 
 
 
@@ -377,7 +385,6 @@ void loop() {
     // servoElbow.setEaseTo(40, 10);
     // servoGripper.startEaseToD(60, 10);
 
-
     // // Blink until servos stops
     // while (ServoEasing::areInterruptsActive()) {
     //     // Here you can insert your own code
@@ -385,8 +392,6 @@ void loop() {
     // }
 
     // delay(2000);
-
-
 
 
 
@@ -398,16 +403,10 @@ void loop() {
 
 
 
-
-
-
-
-
     // ServoEasing::ServoEasingNextPositionArray[0] = 50;
     // ServoEasing::ServoEasingNextPositionArray[1] = 50;
     // ServoEasing::ServoEasingNextPositionArray[2] = 50;
     // setEaseToForAllServosSynchronizeAndStartInterrupt(20); // Set speed and start interrupt here, we check the end with areInterruptsActive()
-
 
     // // stepper.setSpeed(10);
     // // stepper.moveTo((1600.0 / 360) * 90);
@@ -419,14 +418,6 @@ void loop() {
     // }
 
     // delay(1000);
-
-
-
-
-
-
-
-
 
 
 
@@ -448,17 +439,7 @@ void loop() {
     // }
 
     // stepper.setCurrentPosition(0);
-
-
-
-
-
-
-
 }
-
-
-
 
 
 
@@ -628,7 +609,6 @@ void calculate_sync_speeds(bool stepperVelConstant){
 
     // if MAX(q2DeltaAngle, q3DeltaAngle, q4DeltaAngle) >= q1DeltaAngle --------------> Servomotors define the speed
     // if MAX(q2DeltaAngle, q3DeltaAngle, q4DeltaAngle) < q1DeltaAngle --------------> Stepper motor defines the speed
-    // That would be a way of doing it, but we set that servomotors define the speed, and hence the stepper adapts to them
 
     // Get the servo with the longest distance
     float longestDistanceServo = max(q2DeltaAngle, q3DeltaAngle);
@@ -642,7 +622,7 @@ void calculate_sync_speeds(bool stepperVelConstant){
     if (longestDistanceServo >= q1DeltaAngle) {
 
         // Set the servos speed [deg/s]
-        speedLongestDistanceServo = 24.0;
+        speedLongestDistanceServo = 20.0;
 
         // Calculate the it time will take the slowest servo to reach the desired point [s]
         float movementDurationSLongestDistanceServo = longestDistanceServo/speedLongestDistanceServo;
@@ -708,10 +688,7 @@ void calculate_sync_speeds(bool stepperVelConstant){
         
         // [deg/s2] to [step/s2]
         accelStepperSync = accelStepperSync/DEGREES_PER_STEP;
-
     }
-
-
 }
 
 int deg_to_steps(float degAngle){
@@ -721,21 +698,19 @@ int deg_to_steps(float degAngle){
     // [degs/s2] to [steps/s2]
 }
 
-
 void read_all_encoders(){
-    // float q1Lec = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
+    float q1Lec = read_deg_angle(ENCODER_BASE_CHANNEL) - offsetValueBase;
     float q2Lec = read_deg_angle(ENCODER_SHOULDER_CHANNEL) - offsetValueShoulder;
     float q3Lec = read_deg_angle(ENCODER_ELBOW_CHANNEL) - offsetValueElbow;
     float q4Lec = read_deg_angle(ENCODER_GRIPPER_CHANNEL) - offsetValueGripper;
 
-    Serial.print(0); Serial.print(",");
-    // Serial.print(q1Lec); Serial.print(",");
+    Serial.print(q1Lec); Serial.print(",");
     Serial.print(q2Lec); Serial.print(",");
     Serial.print(q3Lec); Serial.print(",");
     Serial.print(q4Lec); Serial.println();
 }
 
-// All motors move synchronized
+// All motors move synchronized with previous interpolation from python code
 void draw_line() {
     // Create an auxiliar bool variable
     bool trajectoryCompleted = false;
@@ -782,7 +757,6 @@ void draw_line() {
                     true;
                 }
 
-                
                 // Needed for the servos to perform the movement...
                 delay(10);
 
@@ -826,43 +800,88 @@ void calculate_sync_speeds_no_gripper(bool stepperVelConstant){
     // Get the slowest servomotor
     float longestDistanceServo = max(q2DeltaAngle, q3DeltaAngle);
 
-    // Set the servos speed [deg/s]
-    float speedLongestDistanceServo = 24.0;
-
-    // Calculate the it time will take the slowest servo to reach the desired point [s]
-    float movementDurationLongestDistanceServo = longestDistanceServo/speedLongestDistanceServo;
-
-    // Define the speed of the stepper
+    // Variable declarations
+    float speedLongestDistanceServo;
     float speedStepperSync;
 
-    if (stepperVelConstant == true) {
-        // Calculate the speed the stepper motor needs to be synchronized with the servomotors [deg/s]
-        float speedStepperSync = q1DeltaAngle/movementDurationLongestDistanceServo;
+    // Servomotors define the speed
+    if (longestDistanceServo >= q1DeltaAngle) {
 
-        // We need the speed of the stepper motor in [steps/second]
-        speedStepperSync = speedStepperSync/DEGREES_PER_STEP;
+        // Set the servos speed [deg/s]
+        speedLongestDistanceServo = 20.0;
 
-        // If the speed is constant, the acceleration is equal to zero
-        accelStepperSync = 0;
-    } else {
-        // Calculate the acceleration of the stepper (considering v0 = 0 deg/s)
-        accelStepperSync = (2*(q1DeltaAngle))/(pow(movementDurationLongestDistanceServo,2));
+        // Calculate the it time will take the slowest servo to reach the desired point [s]
+        float movementDurationSLongestDistanceServo = longestDistanceServo/speedLongestDistanceServo;
 
-        // Initial speed (v0)
-        speedStepperSync = 0;
-    }
+        if (stepperVelConstant == true) {
+            // Calculate the speed the stepper motor needs to be synchronized with the servomotors [deg/s]
+            float speedStepperSync = q1DeltaAngle/movementDurationSLongestDistanceServo;
 
-    // WHEN THE LONGEST DISTANCE IS GREATER THAN 20°, THIS DOESN'T WORK SO WELL. THE STEPPER ARRIVES LATE
+            // We need the speed of the stepper motor in [steps/second]
+            speedStepperSync = speedStepperSync/DEGREES_PER_STEP;
 
-    syncSpeeds.servosSyncSpeed = speedLongestDistanceServo; // [deg/s]
-    syncSpeeds.stepperSyncSpeed = speedStepperSync; // [steps/s]
+            // If the speed is constant, the acceleration is equal to zero
+            accelStepperSync = 0;
+        } else {
+            // Calculate the acceleration of the stepper (considering v0 = 0 deg/s)
+            accelStepperSync = (2*(q1DeltaAngle))/(pow(movementDurationSLongestDistanceServo,2));
+
+            // Initial speed (v0)
+            speedStepperSync = 0;
+        }
+
+        // WHEN THE LONGEST DISTANCE IS GREATER THAN 20°, THIS DOESN'T WORK SO WELL. THE STEPPER ARRIVES LATE
+
+        syncSpeeds.servosSyncSpeed = speedLongestDistanceServo; // [deg/s]
+        syncSpeeds.stepperSyncSpeed = speedStepperSync; // [steps/s]
+        
+        // [deg/s2] to [step/s2]
+        accelStepperSync = accelStepperSync/DEGREES_PER_STEP;
     
-    // [deg/s2] to [step/s2]
-    accelStepperSync = accelStepperSync/DEGREES_PER_STEP;
+    // Stepper motor defines the speed
+    } else {
+        // Set the stepper speed [deg/s]
+        speedStepperSync = 10.0;
 
+        // Calculate the time required for the stepper to complete the movement [s]
+        float movementDurationStepper = q1DeltaAngle / speedStepperSync;
+        
+        // Calculate the required speed for the longest distance servo to reach the desired position in sync with the stepper
+        // Keeping in mind the remaining servos will still adjust to the slower one
+        speedLongestDistanceServo = longestDistanceServo / movementDurationStepper;
+
+        // Ensure servo speeds don’t fall below 20 deg/s
+        float minServoSpeed = 20.0;
+        speedLongestDistanceServo = max({speedLongestDistanceServo, minServoSpeed});
+        // If minServoSpeed is set, there will be no synchronization, but it's the only way motors will move
+
+        if (stepperVelConstant == true) {
+            // We need the speed of the stepper motor in [steps/second]
+            speedStepperSync = speedStepperSync/DEGREES_PER_STEP;
+
+            // If the speed is constant, the acceleration is equal to zero
+            accelStepperSync = 0;
+        } else {
+            // Calculate the acceleration of the stepper (considering v0 = 0 deg/s)
+            accelStepperSync = (2*(q1DeltaAngle))/(pow(movementDurationStepper,2));
+
+            // Initial speed (v0)
+            speedStepperSync = 0;
+        }
+
+        syncSpeeds.servosSyncSpeed = speedLongestDistanceServo; // [deg/s]
+        syncSpeeds.stepperSyncSpeed = speedStepperSync; // [steps/s]
+        
+        // [deg/s2] to [step/s2]
+        accelStepperSync = accelStepperSync/DEGREES_PER_STEP;
+    }
 }
 
 void go_back_home() {
+
+    servoShoulder.setEasingType(EASE_SINE_IN_OUT);
+    servoElbow.setEasingType(EASE_SINE_IN_OUT);
+    servoGripper.setEasingType(EASE_SINE_IN_OUT);
 
     desiredJointAngles.q1 = 90.0;
     desiredJointAngles.q2 = 80.0;
@@ -919,11 +938,17 @@ void go_back_home() {
 
 // First, the base, shoulder and elbow move synchronized, after they arrive, the gripper moves to its desired position
 void go_to_point_from_home() {
+
+    servoShoulder.setEasingType(EASE_SINE_IN_OUT);
+    servoElbow.setEasingType(EASE_SINE_IN_OUT);
+    servoGripper.setEasingType(EASE_SINE_IN_OUT);
+
     // Create an auxiliar bool variable
     bool trajectoryCompleted = false;
 
     while (trajectoryCompleted == false) {
 
+        // It's necessary to wait till the point arrives from the Python code
         if (Serial.available() > 0) {
 
             // Read the available data in the buffer
@@ -992,6 +1017,11 @@ void go_to_point_from_home() {
 
 // All motors move synchronized
 void draw_line_no_prev_interp() {
+
+    servoShoulder.setEasingType(EASE_QUADRATIC_OUT);
+    servoElbow.setEasingType(EASE_QUADRATIC_OUT);
+    servoGripper.setEasingType(EASE_QUADRATIC_OUT);
+
     // Create an auxiliar bool variable
     bool trajectoryCompleted = false;
 
@@ -1037,7 +1067,6 @@ void draw_line_no_prev_interp() {
                     true;
                 }
 
-
                 // Needed for the servos to perform the movement...
                 delay(10);
 
@@ -1063,7 +1092,7 @@ void reset_home_base() {
     // Move fast to a position near the switch
     stepper.setAcceleration(500);
     stepper.moveTo(deg_to_steps(5));
-    while (stepper.currentPosition() != (deg_to_steps(14)))  {
+    while (stepper.currentPosition() != (deg_to_steps(5)))  {
         stepper.run();
     }
 
@@ -1081,8 +1110,8 @@ void reset_home_base() {
 
     // The switch position is slightly off from the desired 0° alignment. We'll adjust it manually
     stepper.setAcceleration(80);
-    stepper.moveTo(deg_to_steps(3));
-    while (stepper.currentPosition() != (deg_to_steps(3)))  {
+    stepper.moveTo(deg_to_steps(5));
+    while (stepper.currentPosition() != (deg_to_steps(5)))  {
         stepper.run();
     }
 
@@ -1097,12 +1126,6 @@ void reset_home_base() {
         stepper.run();
     }
 }
-
-
-
-
-
-
 
 void correct_home_position(){
     // checks the position of the stepper that needs to be at 90°

@@ -640,7 +640,6 @@ class DnbGame():
                         # Detect if there is a line in the selected segment
                         lineDetection = utils.detect_lines(threshInv)
 
-
                         # Draw the rectangle
                         # utils.draw_rectangle(topLeftRect, bottomRightRect, detectedLinesFrame)
 
@@ -651,10 +650,37 @@ class DnbGame():
                                 cv2.line(currentRectangle, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
                                 # CurrentRectangle is related with detectedLinesFrames
 
-                        # cv2.imshow('Thresholding', threshInv)
-                        # cv2.imshow('Horizontal line detection', currentRectangle)
-                        # cv2.waitKey(0)
-                        # cv2.destroyAllWindows()
+                        cv2.imshow('Thresholding', threshInv)
+                        cv2.imshow('Horizontal line detection', currentRectangle)
+                        cv2.waitKey(0)
+                        cv2.destroyAllWindows()
+                        
+                        # We are checking the current rectangle twice: 
+                        # first to detect black lines or other general features, 
+                        # and second to detect if there is any red line
+                        
+                        # We are detecting red color if lineDetection is none
+                        if lineDetection is None:
+                            # Detect red color (robot's color marker)
+                            redColorDetection = utils.red_color_detection(currentRectangle)
+
+                            # Apply Otsu's automatic thresholding with no binary inversion
+                            thresh = utils.apply_thresholding_no_inv(redColorDetection)
+
+                            # Detect if there is a line in the selected segment
+                            lineDetection = utils.detect_lines(thresh)
+
+                            # Draw each detected line
+                            if lineDetection is not None:
+                                for i in range(0, len(lineDetection)):
+                                    l = lineDetection[i][0]
+                                    cv2.line(currentRectangle, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
+                                    # CurrentRectangle is related with detectedLinesFrames
+                        
+                            cv2.imshow('Thresholding', thresh)
+                            cv2.imshow('Horizontal line detection', currentRectangle)
+                            cv2.waitKey(0)
+                            cv2.destroyAllWindows()
 
                         # Update the past point
                         lastDot = [averageTcpMatrixTransformed[row][column][0], averageTcpMatrixTransformed[row][column][1]]
@@ -667,7 +693,7 @@ class DnbGame():
 
                             # Update the line detection status if necessary
                             if boardState[detectedHorizontalLineDnbpyConv] == 0:
-                                # print('Nueva línea detectada:', str(detectedHorizontalLineDnbpyConv))
+                                print('Nueva línea detectada:', str(detectedHorizontalLineDnbpyConv))
                                 detectedLinesList.append(detectedHorizontalLineDnbpyConv)
                                 newLineDetected = True # A NEW line was detected
 
@@ -704,11 +730,37 @@ class DnbGame():
                                 cv2.line(currentRectangle, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
                                 # CurrentRectangle is related with detectedLinesFrames
 
-                        # cv2.imshow('Vertical line detection', currentRectangle)
-                        # cv2.imshow('Thresholding', threshInv)
+                        cv2.imshow('Vertical line detection', currentRectangle)
+                        cv2.imshow('Thresholding', threshInv)
+                        cv2.waitKey(0)
+                        cv2.destroyAllWindows()
 
-                        # cv2.waitKey(0)
-                        # cv2.destroyAllWindows()
+                        # We are checking the current rectangle twice: 
+                        # first to detect black lines or other general features, 
+                        # and second to detect if there is any red line
+                        
+                        # We are detecting red color if lineDetection is none
+                        if lineDetection is None:
+                            # Detect red color (robot's color marker)
+                            redColorDetection = utils.red_color_detection(currentRectangle)
+
+                            # Apply Otsu's automatic thresholding with no binary inversion
+                            thresh = utils.apply_thresholding_no_inv(redColorDetection)
+
+                            # Detect if there is a line in the selected segment
+                            lineDetection = utils.detect_lines(thresh)
+
+                            # Draw each detected line
+                            if lineDetection is not None:
+                                for i in range(0, len(lineDetection)):
+                                    l = lineDetection[i][0]
+                                    cv2.line(currentRectangle, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
+                                    # CurrentRectangle is related with detectedLinesFrames
+                        
+                            cv2.imshow('Thresholding', thresh)
+                            cv2.imshow('Horizontal line detection', currentRectangle)
+                            cv2.waitKey(0)
+                            cv2.destroyAllWindows()
 
                         # Update the past point
                         lastDot = [averageTcpMatrixTransformed[row][column][0], averageTcpMatrixTransformed[row][column][1]]
@@ -722,7 +774,7 @@ class DnbGame():
                             
                             # Update the line detection status if necessary
                             if boardState[detectedVerticalLineDnbpyConv] == 0:
-                                # print('Nueva línea detectada:', str(detectedVerticalLineDnbpyConv))
+                                print('Nueva línea detectada:', str(detectedVerticalLineDnbpyConv))
                                 detectedLinesList.append(detectedVerticalLineDnbpyConv)
                                 newLineDetected = True # A NEW line was detected
 
