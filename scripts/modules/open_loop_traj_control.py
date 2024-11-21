@@ -1,12 +1,13 @@
 import serial
 import time
-from interpolation import position_quintic_interpolation
-from inverse_kinematics import inverse_kinematics
-from forward_kinematics import forward_kinematics
 
-# from modules.interpolation import position_quintic_interpolation
-# from modules.inverse_kinematics import inverse_kinematics
-# from modules.forward_kinematics import forward_kinematics
+# from interpolation import position_quintic_interpolation
+# from inverse_kinematics import inverse_kinematics
+# from forward_kinematics import forward_kinematics
+
+from modules.interpolation import position_quintic_interpolation
+from modules.inverse_kinematics import inverse_kinematics
+from modules.forward_kinematics import forward_kinematics
 
 from math import radians
 import numpy as np
@@ -109,7 +110,7 @@ def send_angles(ser, interpolatedPoints, option):
             else:
                 print("El robot no entendió la opción seleccionada.")
 
-    if (option == "b"):
+    if (option == "b" or option == "c" or option == "g"):
 
         # No interpolation, just the initial point (beginning of the line)
         x = interpolatedPoints[0]
@@ -142,40 +143,7 @@ def send_angles(ser, interpolatedPoints, option):
         # Send a message to notify the robot that the trajectory is complete
         ser.write("completed\n".encode("utf-8"))
     
-    if (option == "c"):
-
-        # No interpolation, just the initial point (beginning of the line)
-        x = interpolatedPoints[0]
-        y = interpolatedPoints[1]
-        z = interpolatedPoints[2]
-        pitchAngle = radians(interpolatedPoints[3])
-
-        # print([x,y,z,pitchAngle])
-
-        # Compute the inverse kinematics to obtain the joint angles
-        # [x, y, z, pitchAngle] to [q1, q2, q3, q4]
-        desiredJointAngles = inverse_kinematics(x, y, z, pitchAngle)
-
-        print(desiredJointAngles)
-
-        # Send the calculated angles to the robot
-        anglesToSend = ",".join(map(str, desiredJointAngles)) + "\n"
-        ser.write(anglesToSend.encode('utf-8'))
-
-        # It's needed to wait till the robot confirms the movement has been performed
-        while True:
-            # Read a line from the serial connection
-            if ser.in_waiting > 0:  # Check if there's incoming data
-                response = ser.readline().decode().strip()  # Read the line, decode it to string, and strip whitespace
-                if response == "done":
-                    break
-                else:
-                    print('El robot no llegó a destino. Reiniciar la partida.')
-        
-        # Send a message to notify the robot that the trajectory is complete
-        ser.write("completed\n".encode("utf-8"))
-
-    elif option == "d":
+    elif (option == "d" or option == "h"):
 
         # It's needed to wait till the robot confirms the movement has been performed
         while True:
@@ -253,7 +221,8 @@ def make_robot_play(initialPoint, finalPoint):
         interpolatedPointsItoF = position_quintic_interpolation(initialPoint, finalPoint,70)
         
         # Send them to the robot
-        send_angles(ser, finalPoint, "c")
+        # send_angles(ser, finalPoint, "c")
+        send_angles(ser, finalPoint, "g")
 
         # It's time to convert the points to jont positions and then send them to the robotic arm actuators
         # We won't interpolate betweeen this points using the created function
@@ -261,7 +230,7 @@ def make_robot_play(initialPoint, finalPoint):
 
         print("Se completó el movimiento del robot.")
         
-        # # Close serial port
+        # Close serial port
         ser.close()
     
     else:
@@ -286,35 +255,34 @@ def move_robot_to(fromPoint, toPoint):
 
 if __name__ == '__main__':
 
-    z = 13.2
+    z = 8.8
+    pitchAngle = 16.0
 
     gameArray = np.array(
         # First row
-        [[[23.4 + 1.8, -5.4 - 0.1,  z],
-        [23.4 + 1.8, -1.8 - 0.1,  z],
-        [23.4 + 1.8,  1.8,  z],
-        [23.4 + 1.8,  5.4 - 0.1, z]],
-#  +0.5 y +0.2
+        [[[23.8 - 0.6, -5.4 - 0.1,  z - 0.5, pitchAngle],
+        [23.4 - 0.1, -1.8,  z - 0.6, pitchAngle],
+        [23.4 + 0.4,  1.8 - 0.1,  z - 0.4, pitchAngle],
+        [23.4 - 0.1,  5.4 - 0.1, z - 0.6, pitchAngle]],
+
         # Second row
-        [[27.0 + 0.7, -5.4 - 0.2,  z],
-        [27.0 + 0.7, -1.8 - 0.3,  z],
-        [27.0 + 0.7,  1.8 - 0.3,  z],
-        [27.0 + 0.7,  5.4 - 0.3,  z]],
+        [[27.0 - 1.2, -5.4 + 0.1,  z - 1.1, pitchAngle],
+        [27.0 - 0.9, -1.8 + 0.1,  z - 1.1, pitchAngle],
+        [27.0 - 0.7,  1.8 + 0.1,  z - 1.2, pitchAngle],
+        [27.0 - 0.9,  5.4 - 0.1,  z - 1.3, pitchAngle]],
 
         # Third row
-        [[30.6 + 0.2, -5.4 - 0.4,  z],
-        [30.6 + 0.2, -1.8 - 0.4,  z],
-        [30.6 + 0.2,  1.8 - 0.4,  z],
-        [30.6 + 0.2,  5.4 - 0.4,  z]]]
+        [[30.6 - 1.5, -5.4 + 0.3,  z - 0.8, pitchAngle],
+        [30.6 - 1.1, -1.8 + 0.2,  z - 0.7, pitchAngle],
+                # [30.6 - 1.1, -1.8 + 0.2,  z - 0.8, pitchAngle],
+        [30.6 - 1.0,  1.8 + 0.1,  z - 0.7, pitchAngle],
+                        # [30.6 - 1.0,  1.8 + 0.1,  z - 0.8, pitchAngle],
+        [30.6 - 1.5,  5.4,  z - 1.1, pitchAngle]]]
     )
 
-    pitchAngle = 0.0
+    p0 = list(gameArray[1][2])
 
-    p0 = list(gameArray[0][2])
-    p0.append(pitchAngle)
-
-    p1 = list(gameArray[0][3])
-    p1.append(pitchAngle)
+    p1 = list(gameArray[2][2])
  
     make_robot_play(p0, p1)
 

@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 
-image = cv2.imread('modules/1.png')
+image = cv2.imread('modules/test_images/1.png')
 
 hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 

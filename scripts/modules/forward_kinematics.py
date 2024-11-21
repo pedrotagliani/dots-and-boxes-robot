@@ -5,7 +5,7 @@ import numpy as np
 import sympy as sp
 
 # Variables relacionadas a cada una de las longitudes intervinientes en los cálculos (todo en centímetros)
-l1 = 14.738
+l1 = 14.638
 l2 = 12.725
 l3 = 10.222
 l4 = 11.200

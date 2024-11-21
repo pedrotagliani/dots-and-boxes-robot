@@ -1,11 +1,11 @@
 from math import degrees, radians, sin, cos, sqrt, atan2, pi
 
 # Variables relacionadas a cada una de las longitudes intervinientes en los cálculos (todo en centímetros)
-l1 = 14.738
+l1 = 14.638
 l2 = 12.725
 l3 = 10.222
 l4 = 11.200
-l5 = 7.400
+l5 = 7.600
 
 def inverse_kinematics(px, py, pz, pitchAngle): # El pitchAngle recibido está en radianes
     try:
@@ -53,7 +53,7 @@ def inverse_kinematics(px, py, pz, pitchAngle): # El pitchAngle recibido está e
         q2 = theta2
         q3 = (pi/2 + radians(28)) - (pi - theta3_sol1) # El pi/2 + radians(28) corresponde a la nueva posición de 0° del servomotor en relación a los 0° originales según el dibujo
         q4 = theta4 + (-pitchAngle) # Se le cambia el signo al ángulo pitch porque Y0 se analizó desde atrás
-
+        q4 = q4 + radians(20) # Due to the offset of the gripper servomotor
         # Ojo con el tema de los ángulos q. En el dibujo de cinemática inversa, prestar atención a dónde está definido el cero y el sentido de giro para cada q.
         # Lo que está plasmado en el dibujo que hicimos de cinemática inversa es diferente a este caso. Ahí q2 partía desde la vertical, en este caso parte desde la horizontal,
         # por lo que q2 va a ser igual a theta2. Por otro lado, q1 y q3 también son diferentes. Solamente coincide q4 en ambos casos.
@@ -72,12 +72,12 @@ def inverse_kinematics(px, py, pz, pitchAngle): # El pitchAngle recibido está e
 
 if __name__ == '__main__':
     # Ejemplo de aplicación
-    px = 25.8
-    py = -3.7
-    pz = 13.6
+    px = 23.4
+    py = -5.4
+    pz = 14
 
     # Se define la orientación del efector final respecto a la terna base (solo es posible controlar el ángulo de cabeceo):
-    pitchAngle = radians(-10)
+    pitchAngle = radians(10)
 
     qList = inverse_kinematics(px, py, pz, pitchAngle)
 

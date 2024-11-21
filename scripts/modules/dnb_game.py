@@ -79,30 +79,28 @@ class DnbGame():
 
         # self.tbpointsMatrix = utils.get_distance_matrix_from_robot_to_points(xbp1, ybp1, zbp, self.dotsHeight, self.dotsWidth, self.distanceBetweenDots)
 
-        # print(self.tbpointsMatrix)
-
-        z = 6.9
+        z = 8.8
+        pitchAngle = 16.0
 
         self.tbpointsMatrix = np.array(
             # First row
-            [[[23.4 - 1.1, -5.4 + 1.6,  z-0.3],
-            [23.4 -1.2, -1.8 + 1.7,  z - 0.4],
-            [23.4 - 1.2,  1.8 + 1.6,  z - 0.3],
-            [23.4 - 1.2,  5.4 + 1.6, z - 0.3]],
+            [[[23.8 - 0.6, -5.4 - 0.1,  z - 0.5, pitchAngle],
+            [23.4 - 0.1, -1.8,  z - 0.6, pitchAngle],
+            [23.4 + 0.4,  1.8 - 0.1,  z - 0.4, pitchAngle],
+            [23.4 - 0.1,  5.4 - 0.1, z - 0.6, pitchAngle]],
 
             # Second row
-            [[27.0 - 1.2, -5.4 + 1.7,  z - 0.4],
-            [27.0 - 1.3, -1.8 + 1.8,  z - 0.4],
-            [27.0 - 1.3,  1.8 + 1.8,  z - 0.4],
-            [27.0 - 1.5,  5.4 + 1.8,  z - 0.4]],
+            [[27.0 - 1.2, -5.4 + 0.1,  z - 1.1, pitchAngle],
+            [27.0 - 0.9, -1.8 + 0.1,  z - 1.1, pitchAngle],
+            [27.0 - 0.7,  1.8 + 0.1,  z - 1.2, pitchAngle],
+            [27.0 - 0.9,  5.4 - 0.1,  z - 1.3, pitchAngle]],
 
             # Third row
-            [[30.6 - 1.6, -5.4 + 2.1,  z - 0.6],
-            [30.6 - 1.8, -1.8 + 2.1,  z - 0.6],
-            [30.6 - 1.8,  1.8 + 2.1,  z - 0.6],
-            [30.6 - 2.1,  5.4 + 2.1,  z - 0.6]]]
+            [[30.6 - 1.5, -5.4 + 0.3,  z - 0.8, pitchAngle],
+            [30.6 - 1.1, -1.8 + 0.2,  z - 0.7, pitchAngle],
+            [30.6 - 1.0,  1.8 + 0.1,  z - 0.7, pitchAngle],
+            [30.6 - 1.5,  5.4,  z - 1.1, pitchAngle]]]
         )
-
 
         # The width of the wood is 21.4cm
         # The length of the board (excluding the black frames) is 33cm.
@@ -650,10 +648,10 @@ class DnbGame():
                                 cv2.line(currentRectangle, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
                                 # CurrentRectangle is related with detectedLinesFrames
 
-                        cv2.imshow('Thresholding', threshInv)
-                        cv2.imshow('Horizontal line detection', currentRectangle)
-                        cv2.waitKey(0)
-                        cv2.destroyAllWindows()
+                        # cv2.imshow('Thresholding', threshInv)
+                        # cv2.imshow('Horizontal line detection', currentRectangle)
+                        # cv2.waitKey(0)
+                        # cv2.destroyAllWindows()
                         
                         # We are checking the current rectangle twice: 
                         # first to detect black lines or other general features, 
@@ -677,10 +675,10 @@ class DnbGame():
                                     cv2.line(currentRectangle, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
                                     # CurrentRectangle is related with detectedLinesFrames
                         
-                            cv2.imshow('Thresholding', thresh)
-                            cv2.imshow('Horizontal line detection', currentRectangle)
-                            cv2.waitKey(0)
-                            cv2.destroyAllWindows()
+                            # cv2.imshow('Thresholding', thresh)
+                            # cv2.imshow('Horizontal line detection', currentRectangle)
+                            # cv2.waitKey(0)
+                            # cv2.destroyAllWindows()
 
                         # Update the past point
                         lastDot = [averageTcpMatrixTransformed[row][column][0], averageTcpMatrixTransformed[row][column][1]]
@@ -730,10 +728,10 @@ class DnbGame():
                                 cv2.line(currentRectangle, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
                                 # CurrentRectangle is related with detectedLinesFrames
 
-                        cv2.imshow('Vertical line detection', currentRectangle)
-                        cv2.imshow('Thresholding', threshInv)
-                        cv2.waitKey(0)
-                        cv2.destroyAllWindows()
+                        # cv2.imshow('Vertical line detection', currentRectangle)
+                        # cv2.imshow('Thresholding', threshInv)
+                        # cv2.waitKey(0)
+                        # cv2.destroyAllWindows()
 
                         # We are checking the current rectangle twice: 
                         # first to detect black lines or other general features, 
@@ -757,10 +755,10 @@ class DnbGame():
                                     cv2.line(currentRectangle, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
                                     # CurrentRectangle is related with detectedLinesFrames
                         
-                            cv2.imshow('Thresholding', thresh)
-                            cv2.imshow('Horizontal line detection', currentRectangle)
-                            cv2.waitKey(0)
-                            cv2.destroyAllWindows()
+                            # cv2.imshow('Thresholding', thresh)
+                            # cv2.imshow('Horizontal line detection', currentRectangle)
+                            # cv2.waitKey(0)
+                            # cv2.destroyAllWindows()
 
                         # Update the past point
                         lastDot = [averageTcpMatrixTransformed[row][column][0], averageTcpMatrixTransformed[row][column][1]]
@@ -937,7 +935,7 @@ class DnbGame():
                         print(f'Movimiento de {self.players[0]}: {playerMove}.')
 
                     else:
-                        print('No se detectó que hayas dibujado ninguna línea.')
+                        print('No se detectó que hayas dibujado alguna línea.')
 
             # If the robot makes the move...
             elif currentPlayer == self.players[1]:
@@ -957,13 +955,10 @@ class DnbGame():
                 initialPoint = self.tbpointsMatrix[int(pointsIndexforLine[0][0][0])][int(pointsIndexforLine[0][0][1])]
                 finalPoint = self.tbpointsMatrix[int(pointsIndexforLine[0][1][0])][int(pointsIndexforLine[0][1][1])]
 
+                # Points = [x, y, z, pitchAngle]
                 initialPoint = list(initialPoint)
                 finalPoint = list(finalPoint)
                 
-                # Append the pitch angle to the points --------> points = [x, y, z, pitchAngle]
-                initialPoint.append(0)
-                finalPoint.append(0)
-
                 print(f'Punto inicial: {initialPoint}')
                 print(f'Punto final: {finalPoint}')
                 print(lineType2)
@@ -973,8 +968,8 @@ class DnbGame():
 
                 # Continue running this while loop until a line drawn by the robot is detected and it must be the correct one
                 while runningLoop == True:
-                    print('Cuando el robot haya terminado de dibujar la línea, apretá "m".')
-                    keyboard.wait('m')
+                    # print('Cuando el robot haya terminado de dibujar la línea, apretá "m".')
+                    # keyboard.wait('m')
 
                     # Detect the board
                     averageTcpMatrixTransformed, boardFrame = self.detect_board()
@@ -996,7 +991,7 @@ class DnbGame():
                         else:
                             print(f'No se dibujó la línea en el casillero correcto ({detectedLinesList[-1]}). Bórrela de la pizarra.')
                     else:
-                        print('No se detectó que el robot haya dibujado ninguna línea.')
+                        print('No se detectó que el robot haya dibujado alguna línea.')
             
             # Print the score in the terminal
             self.show_score()

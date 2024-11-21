@@ -73,12 +73,15 @@
 #define UNITS_TO_MICROSECONDS_CONSTANT 4.8828
 
 // Define minimum and maximum pulse width for the servomotors specified in microseconds
-#define SERVO_GRIPPER_MIN 176*UNITS_TO_MICROSECONDS_CONSTANT
-#define SERVO_GRIPPER_MAX 552*UNITS_TO_MICROSECONDS_CONSTANT
+#define SERVO_GRIPPER_MIN 150*UNITS_TO_MICROSECONDS_CONSTANT
+#define SERVO_GRIPPER_MAX 554*UNITS_TO_MICROSECONDS_CONSTANT
 #define SERVO_ELBOW_MIN 100*UNITS_TO_MICROSECONDS_CONSTANT
 #define SERVO_ELBOW_MAX 468*UNITS_TO_MICROSECONDS_CONSTANT
+// #define SERVO_SHOULDER_MIN 90*UNITS_TO_MICROSECONDS_CONSTANT
+// #define SERVO_SHOULDER_MAX 482*UNITS_TO_MICROSECONDS_CONSTANT
 #define SERVO_SHOULDER_MIN 90*UNITS_TO_MICROSECONDS_CONSTANT
-#define SERVO_SHOULDER_MAX 482*UNITS_TO_MICROSECONDS_CONSTANT
+#define SERVO_SHOULDER_MAX 524*UNITS_TO_MICROSECONDS_CONSTANT
+
 
 // Functions declaration
 void tca_select(uint8_t channel);
@@ -95,6 +98,8 @@ void calculate_sync_speeds_no_gripper(bool stepperVelConstant);
 void go_to_point_from_home();
 void draw_line_no_prev_interp();
 void reset_home_base();
+void draw_line_no_prev_interp_simpler();
+void go_back_home_shoulder_first();
 
 // Create the instances of the ServoEasing class
 ServoEasing servoGripper(PCA9685_DEFAULT_ADDRESS);
@@ -216,7 +221,6 @@ void setup() {
     stepper.setCurrentPosition(0); // Set the current position as 0°
 
     // Move the stepper motor to home position (90°)
-    // DO LATER ------> Read the encoder to confirm if the motor has reached 90°
     stepper.setAcceleration(500);
     stepper.moveTo(deg_to_steps(baseHomeDeg));
     while (stepper.currentPosition() != (deg_to_steps(baseHomeDeg)))  {
@@ -312,10 +316,16 @@ void loop() {
     // currentJointAngles.q3 = 0.0;
     // currentJointAngles.q4 = 120.0;
 
-    // desiredJointAngles.q1 = 80.0;
-    // desiredJointAngles.q2 = 60.0;
-    // desiredJointAngles.q3 = 20.0;
-    // desiredJointAngles.q4 = 100;
+    // desiredJointAngles.q1 = 77.01;
+    // desiredJointAngles.q2 = 71.10;
+    // desiredJointAngles.q3 = 15.16;
+    // desiredJointAngles.q4 = 31.74 + 37.0;
+
+    // // desiredJointAngles.q1 = 77.01;
+    // // desiredJointAngles.q2 = 71.10;
+    // // desiredJointAngles.q3 = 7.16;
+    // // desiredJointAngles.q4 = 31.74;
+
 
     // calculate_sync_speeds(false);
 
@@ -327,11 +337,24 @@ void loop() {
     // ServoEasing::ServoEasingNextPositionArray[2] = desiredJointAngles.q4;
     // setEaseToForAllServosSynchronizeAndStartInterrupt(syncSpeeds.servosSyncSpeed); // Set speed and start interrupt here, we check the end with areInterruptsActive()
 
-    // stepper.setAcceleration(accelStepperSync);
-    // stepper.moveTo(deg_to_steps(desiredJointAngles.q1));
-    // stepper.runToPosition();  // Blocks until it reaches the position
+    // // // stepper.setAcceleration(accelStepperSync);
+    // // // stepper.moveTo(deg_to_steps(desiredJointAngles.q1));
+    // // // stepper.runToPosition();  // Blocks until it reaches the position
+
+    // while (ServoEasing::areInterruptsActive()) {
+    //     // Here you can insert your own code
+    // }
 
     // delay(10);
+
+    // read_all_encoders();
+
+    //     while (true)
+    // {
+    //     /* code */
+    // }
+    
+
 
     if (Serial.available() > 0) {
         
@@ -350,21 +373,28 @@ void loop() {
         } else if (recibedData == "d") {
             Serial.println("ok");
             go_back_home();
-            reset_home_base();
+            // reset_home_base();
         } else if (recibedData == "e") {
             Serial.println("on");
         } else if (recibedData == "f") {
             Serial.println("ok");
             draw_line();
+        } else if (recibedData == "g") {
+            Serial.println("ok");
+            draw_line_no_prev_interp_simpler();
+        } else if (recibedData == "h") {
+            Serial.println("ok");
+            go_back_home_shoulder_first();
+            reset_home_base();
         }
+
     }
 
     // tca_select(PCA9685_CHANNEL);
-    // servoElbow.easeTo(40,16);
-    // servoGripper.easeTo(0,16);
+    // servoElbow.easeTo(28+90,16);
+    // servoGripper.easeTo(0+37,14);
     // delay(5000);
-    // servoGripper.easeTo(90,16);
-
+    // servoGripper.easeTo(90,14);
     // servoShoulder.easeTo(0,16);
     // servoShoulder.easeTo(90,16);
 
@@ -877,6 +907,106 @@ void calculate_sync_speeds_no_gripper(bool stepperVelConstant){
     }
 }
 
+// We are working with global variables (currentJointAngles, desiredJointAngles, syncSpeeds and accelStepperSync) so it's not necessary to pass any arguments to this function
+// This function only takes in consideration the motors from the base, elbow and gripper
+void calculate_sync_speeds_no_shoulder(bool stepperVelConstant){
+
+    // Differentiate between the desired joint angles and the current joint angles
+    // Note that each q will be always positive due to the declared servomotors restrictions
+    float q1DeltaAngle = abs(desiredJointAngles.q1 - currentJointAngles.q1);
+    float q3DeltaAngle = abs(desiredJointAngles.q3 - currentJointAngles.q3);
+    float q4DeltaAngle = abs(desiredJointAngles.q4 - currentJointAngles.q4);
+
+    // q3 and q4 are synchronized by servoEasing library, now it's necessary to sync them with the stepper motor manually
+
+    // q3 and q4 ----> synchronized ----> The one with the longest distance will dictate the overall speed
+
+    // If sync, servomotors velocity can't be less than 10 deg/s
+
+    // if MAX(q3DeltaAngle, q4DeltaAngle) >= q1DeltaAngle --------------> Servomotors define the speed
+    // if MAX(q3DeltaAngle, q4DeltaAngle) < q1DeltaAngle --------------> Stepper motor defines the speed
+    // That would be a way of doing it, but we set that servomotors define the speed, and hence the stepper adapts to them
+
+    // Get the slowest servomotor
+    float longestDistanceServo = max(q3DeltaAngle, q4DeltaAngle);
+
+    // Variable declarations
+    float speedLongestDistanceServo;
+    float speedStepperSync;
+
+    // Servomotors define the speed
+    if (longestDistanceServo >= q1DeltaAngle) {
+
+        // Set the servos speed [deg/s]
+        speedLongestDistanceServo = 20.0;
+
+        // Calculate the it time will take the slowest servo to reach the desired point [s]
+        float movementDurationSLongestDistanceServo = longestDistanceServo/speedLongestDistanceServo;
+
+        if (stepperVelConstant == true) {
+            // Calculate the speed the stepper motor needs to be synchronized with the servomotors [deg/s]
+            float speedStepperSync = q1DeltaAngle/movementDurationSLongestDistanceServo;
+
+            // We need the speed of the stepper motor in [steps/second]
+            speedStepperSync = speedStepperSync/DEGREES_PER_STEP;
+
+            // If the speed is constant, the acceleration is equal to zero
+            accelStepperSync = 0;
+        } else {
+            // Calculate the acceleration of the stepper (considering v0 = 0 deg/s)
+            accelStepperSync = (2*(q1DeltaAngle))/(pow(movementDurationSLongestDistanceServo,2));
+
+            // Initial speed (v0)
+            speedStepperSync = 0;
+        }
+
+        // WHEN THE LONGEST DISTANCE IS GREATER THAN 20°, THIS DOESN'T WORK SO WELL. THE STEPPER ARRIVES LATE
+
+        syncSpeeds.servosSyncSpeed = speedLongestDistanceServo; // [deg/s]
+        syncSpeeds.stepperSyncSpeed = speedStepperSync; // [steps/s]
+        
+        // [deg/s2] to [step/s2]
+        accelStepperSync = accelStepperSync/DEGREES_PER_STEP;
+    
+    // Stepper motor defines the speed
+    } else {
+        // Set the stepper speed [deg/s]
+        speedStepperSync = 10.0;
+
+        // Calculate the time required for the stepper to complete the movement [s]
+        float movementDurationStepper = q1DeltaAngle / speedStepperSync;
+        
+        // Calculate the required speed for the longest distance servo to reach the desired position in sync with the stepper
+        // Keeping in mind the remaining servos will still adjust to the slower one
+        speedLongestDistanceServo = longestDistanceServo / movementDurationStepper;
+
+        // Ensure servo speeds don’t fall below 20 deg/s
+        float minServoSpeed = 20.0;
+        speedLongestDistanceServo = max({speedLongestDistanceServo, minServoSpeed});
+        // If minServoSpeed is set, there will be no synchronization, but it's the only way motors will move
+
+        if (stepperVelConstant == true) {
+            // We need the speed of the stepper motor in [steps/second]
+            speedStepperSync = speedStepperSync/DEGREES_PER_STEP;
+
+            // If the speed is constant, the acceleration is equal to zero
+            accelStepperSync = 0;
+        } else {
+            // Calculate the acceleration of the stepper (considering v0 = 0 deg/s)
+            accelStepperSync = (2*(q1DeltaAngle))/(pow(movementDurationStepper,2));
+
+            // Initial speed (v0)
+            speedStepperSync = 0;
+        }
+
+        syncSpeeds.servosSyncSpeed = speedLongestDistanceServo; // [deg/s]
+        syncSpeeds.stepperSyncSpeed = speedStepperSync; // [steps/s]
+        
+        // [deg/s2] to [step/s2]
+        accelStepperSync = accelStepperSync/DEGREES_PER_STEP;
+    }
+}
+
 void go_back_home() {
 
     servoShoulder.setEasingType(EASE_SINE_IN_OUT);
@@ -911,6 +1041,65 @@ void go_back_home() {
     } else {
         servoElbow.setEaseTo(desiredJointAngles.q3, syncSpeeds.servosSyncSpeed);
         servoShoulder.startEaseToD(desiredJointAngles.q2, servoElbow.mMillisForCompleteMove);
+    }
+    
+    stepper.setAcceleration(accelStepperSync);
+    stepper.moveTo(deg_to_steps(desiredJointAngles.q1));
+    // stepper.runToPosition();  // Blocks until it reaches the position
+    while(stepper.currentPosition() != deg_to_steps(desiredJointAngles.q1)){
+        stepper.run();  
+    }
+
+    while (ServoEasing::areInterruptsActive()) {
+        true;
+    }
+
+    // Needed for the servos to perform the movement...
+    delay(10);
+
+    // Update the current angles
+    currentJointAngles.q1 = desiredJointAngles.q1;
+    currentJointAngles.q2 = desiredJointAngles.q2;
+    currentJointAngles.q3 = desiredJointAngles.q3;
+    currentJointAngles.q4 = desiredJointAngles.q4;
+    
+    Serial.println("done");
+}
+
+void go_back_home_shoulder_first() {
+
+    servoShoulder.setEasingType(EASE_SINE_IN_OUT);
+    servoElbow.setEasingType(EASE_SINE_IN_OUT);
+    servoGripper.setEasingType(EASE_SINE_IN_OUT);
+
+    desiredJointAngles.q1 = 90.0;
+    desiredJointAngles.q2 = 80.0;
+    desiredJointAngles.q3 = 0.0;
+    desiredJointAngles.q4 = 120.0;
+
+    // Servomotors are synchronized by servoEasing. It's needed to sync the stepper motor with them
+    calculate_sync_speeds_no_shoulder(false);
+
+    // Select the desired channel on the TCA9548A
+    tca_select(PCA9685_CHANNEL);
+
+    // Blocking servomotor movement
+    // Gripper moves back first
+    servoShoulder.easeTo(desiredJointAngles.q2, syncSpeeds.servosSyncSpeed);
+
+    // Non-blocking servomotors movement
+    // The remaining motors move back synchronized
+    // The servomor with the greater distance defines the velocity of synchronization
+    float q3DeltaAngle = abs(desiredJointAngles.q3 - currentJointAngles.q3);
+    float q4DeltaAngle = abs(desiredJointAngles.q4 - currentJointAngles.q4);
+
+    if (q3DeltaAngle >= q4DeltaAngle){
+        servoElbow.setEaseTo(desiredJointAngles.q3, syncSpeeds.servosSyncSpeed);
+        servoGripper.startEaseToD(desiredJointAngles.q4, servoElbow.mMillisForCompleteMove);
+
+    } else {
+        servoGripper.setEaseTo(desiredJointAngles.q4, syncSpeeds.servosSyncSpeed);
+        servoElbow.startEaseToD(desiredJointAngles.q3, servoGripper.mMillisForCompleteMove);
     }
     
     stepper.setAcceleration(accelStepperSync);
@@ -1085,6 +1274,107 @@ void draw_line_no_prev_interp() {
                 }
             }
         }
+}
+
+// All motors move synchronized for vertical lines, but only move the stepper motor when a horizontal line must be drawn
+void draw_line_no_prev_interp_simpler() {
+
+    servoShoulder.setEasingType(EASE_QUADRATIC_OUT);
+    servoElbow.setEasingType(EASE_QUADRATIC_OUT);
+    servoGripper.setEasingType(EASE_QUADRATIC_OUT);
+
+    // Create an auxiliar bool variable
+    bool trajectoryCompleted = false;
+
+    while (trajectoryCompleted == false) {
+        if (Serial.available() > 0) {
+
+            // Read the available data in the buffer
+            // The choice 'b' is confirmed, so the following data are the target angles that the motors should reach or a completion notification
+            String movementData = Serial.readStringUntil('\n');
+
+            if (movementData != "completed"){
+
+                // Store the desired angles in the global instance named desiredJointAngles
+                sscanf(movementData.c_str(), "%f,%f,%f,%f", &desiredJointAngles.q1, &desiredJointAngles.q2, &desiredJointAngles.q3, &desiredJointAngles.q4);  // Parsing received data
+
+                // Differentiate between the desired joint angles and the current joint angles
+                // Note that each q will be always positive due to the declared servomotors restrictions
+                float q1DeltaAngle = abs(desiredJointAngles.q1 - currentJointAngles.q1);
+                float q2DeltaAngle = abs(desiredJointAngles.q2 - currentJointAngles.q2);
+                float q3DeltaAngle = abs(desiredJointAngles.q3 - currentJointAngles.q3);
+                float q4DeltaAngle = abs(desiredJointAngles.q4 - currentJointAngles.q4);
+
+                // Get the servo with the longest distance
+                float longestDistanceServo = max(q2DeltaAngle, q3DeltaAngle);
+                longestDistanceServo = max(longestDistanceServo, q4DeltaAngle);
+
+                // if q1DeltaAngle > q2DeltaAngle, q3DeltaAngle and q4DeltaAngle ---------> It's a horizontal line
+                // if q2DeltaAngle OR q3DeltaAngle OR q4DeltaAngle > q1DeltaAngle --------> It's a vertical line
+
+                // In the vertical line we'll move all the motor synchronized if possible
+                // But, in the horizontal line we'll only move the stepper motor
+
+                if (q1DeltaAngle > longestDistanceServo) {
+                    // HORIZONTAL LINES
+
+                    stepper.setAcceleration(30);
+                    stepper.moveTo(deg_to_steps(desiredJointAngles.q1));
+                    // stepper.runToPosition();  // Blocks until it reaches the position
+                    while(stepper.currentPosition() != deg_to_steps(desiredJointAngles.q1)){
+                        stepper.run();  
+                    }
+
+                } else {
+                    // VERTICAL LINES
+
+                    // Servomotors are synchronized by servoEasing. It's needed to sync the stepper motor with them
+                    calculate_sync_speeds(false);
+
+                    // Select the desired channel on the TCA9548A
+                    tca_select(PCA9685_CHANNEL);
+
+                    // Non-blocking servomotors movement
+                    ServoEasing::ServoEasingNextPositionArray[0] = desiredJointAngles.q2;
+                    ServoEasing::ServoEasingNextPositionArray[1] = desiredJointAngles.q3;
+                    ServoEasing::ServoEasingNextPositionArray[2] = desiredJointAngles.q4;
+                    setEaseToForAllServosSynchronizeAndStartInterrupt(syncSpeeds.servosSyncSpeed); // Set speed and start interrupt here, we check the end with areInterruptsActive()
+
+                    stepper.setAcceleration(accelStepperSync);
+                    stepper.moveTo(deg_to_steps(desiredJointAngles.q1));
+                    // stepper.runToPosition();  // Blocks until it reaches the position
+                    while(stepper.currentPosition() != deg_to_steps(desiredJointAngles.q1)){
+                        stepper.run();  
+                    }
+
+                    // If the stepper has a short target distance (e.g., 89° to 90°), it may reach its target too quickly,
+                    // preventing the servomotors from reaching their target positions due to the stepper's while loop ending early
+                    // To avoid this, we can add a protection mechanism to ensure that the servomotors have completed their movements before proceeding
+                    // This may only happen when the robot draws a line, because the distances in general are short for certain articulations
+
+                    while (ServoEasing::areInterruptsActive()) {
+                        true;
+                    }
+
+                    // Needed for the servos to perform the movement...
+                    delay(10);
+                }
+                
+                // Update the current angles
+                currentJointAngles.q1 = desiredJointAngles.q1;
+                currentJointAngles.q2 = desiredJointAngles.q2;
+                currentJointAngles.q3 = desiredJointAngles.q3;
+                currentJointAngles.q4 = desiredJointAngles.q4;
+
+                // Request remaining angle values from the Python code
+                Serial.println("done");
+
+            } else {
+                trajectoryCompleted = true;
+                // delay(1000);
+            }
+        }
+    }
 }
 
 void reset_home_base() {
