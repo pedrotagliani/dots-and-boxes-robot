@@ -227,5 +227,8 @@ $RECYCLE.BIN/
 
 # Auxiliar files
 Practica_trayectorias.ipynb
+test_images/
+color_detection.py
+image_diff.py
 
 # End of https://www.toptal.com/developers/gitignore/api/python,platformio,windows,visualstudiocode

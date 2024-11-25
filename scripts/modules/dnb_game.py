@@ -106,8 +106,9 @@ class DnbGame():
         # The length of the board (excluding the black frames) is 33cm.
         # To center it, there is 5.8cm on each side.
 
-        # I would say that the distances, as such, are not the real ones. This is due to the accumulated error 
-        # (the angles that the servos are asked to turn have a certain error, and the distances of the links as well).
+        # Save the previous frame to compare to the possible current frame
+        self.previousFrame = None
+        self.AcceptedDiffFrameError = 0.008
 
     def has_finished(self):
         return self.gameDnbpyLib.is_finished() # return True or False
@@ -117,7 +118,7 @@ class DnbGame():
         # Variables to store the tcp matrices when the whiteboard is being detected
         setOfTcpointsMatrix = []
         countSetOfTcpMatrix = 0
-        maxSetOfTcpMatrix = 100
+        maxSetOfTcpMatrix = 30
 
         # An array that stores the values obtained from performing element-wise operations on matrices
         averageTcpMatrix = np.zeros((self.dotsHeight,self.dotsWidth,2), dtype=np.float32)
@@ -314,8 +315,8 @@ class DnbGame():
                         cv2.circle(frameCopy,(int(tcpProjected0[0]),int(tcpProjected0[1])),5,(0,255,0),thickness=-1)
 
                         # Distance from marker with ID 1 to the first circle
-                        x1p = -3.5 - 3.6*5 + 3.6
-                        y1p = 6.6 + 0.2 + 3.6
+                        x1p = -3.5 - 3.6*5 + 3.6 + 0.2
+                        y1p = 6.6 + 0.2 + 3.6 - 0.4
                         z1p = 0
 
                         # Translation vector from the marker 1 to the nearest circle (1 to point)
@@ -332,8 +333,8 @@ class DnbGame():
                         cv2.circle(frameCopy,(int(tcpProjected1[0]),int(tcpProjected1[1])),5,(0,255,0),thickness=-1)
 
                         # Distance from marker with ID 2 to the first circle
-                        x2p = -6.1 - 3.6*5 + 0.2 + 3.6
-                        y2p = 3.5 + 3.6*5 + 0.2 - 3.6
+                        x2p = -6.1 - 3.6*5 + 0.2 + 3.6 + 0.2
+                        y2p = 3.5 + 3.6*5 + 0.2 - 3.6 - 0.2
                         z2p = 0
 
                         # Translation vector from the marker 2 to the nearest circle (2 to point)
@@ -350,7 +351,7 @@ class DnbGame():
                         cv2.circle(frameCopy,(int(tcpProjected2[0]),int(tcpProjected2[1])),5,(0,255,0),thickness=-1)
 
                         # Distance from marker with ID 3 to the first circle
-                        x3p = -6.4 - 3.6*5 - 0.4 + 3.6
+                        x3p = -6.4 - 3.6*5 - 0.4 + 3.6 + 0.2
                         y3p = 0.4 - 3.6
                         z3p = 0
 
@@ -568,6 +569,10 @@ class DnbGame():
 
                         if self.boardDetected == True:
                             cv2.imshow('Board with dots average average', cv2.resize(boardWithDotsAverageAverage, (640,480)))
+
+                        if self.previousFrame is not None:
+                            cv2.imshow('Previous frame', cv2.resize(self.previousFrame, (640,480)))
+
                     
                     # if cv2.waitKey(1) & 0xFF == ord('q'):
                     #     break
@@ -578,6 +583,8 @@ class DnbGame():
             else:
                 print('No se pudo leer un frame.')
                 # In progress...
+
+        # cv2.imwrite("modules/test_images/test.png", boardFrame)
 
         return averageTcpMatrixTransformed, boardFrame
 
@@ -593,7 +600,7 @@ class DnbGame():
         # This issue can be easily observed in the top padding of the first row of lines
 
         # Size of the margin in pixels
-        margin = 500
+        margin = 5
 
         # Apply padding with a white background (255, 255, 255)
         detectedLinesFrame = cv2.copyMakeBorder(detectedLinesFrame, top=margin, bottom=margin, left=margin, right=margin, borderType=cv2.BORDER_CONSTANT, value=[255, 255, 255])
@@ -648,10 +655,10 @@ class DnbGame():
                                 cv2.line(currentRectangle, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
                                 # CurrentRectangle is related with detectedLinesFrames
 
-                        # cv2.imshow('Thresholding', threshInv)
-                        # cv2.imshow('Horizontal line detection', currentRectangle)
-                        # cv2.waitKey(0)
-                        # cv2.destroyAllWindows()
+                        cv2.imshow('Thresholding', threshInv)
+                        cv2.imshow('Horizontal line detection', currentRectangle)
+                        cv2.waitKey(0)
+                        cv2.destroyAllWindows()
                         
                         # We are checking the current rectangle twice: 
                         # first to detect black lines or other general features, 
@@ -868,6 +875,13 @@ class DnbGame():
                     print('¡Excelente, la pizarra está vacía!')
                     print('¡El juego ya puede comenzar!')
 
+                    # Save the current boardFrame as the previous frame
+                    self.previousFrame = boardFrame
+                    # Ensure this frame contains only the game board and no additional elements
+                    # This is crucial since we don't have a previous image to compare with, as it is defined as None initially
+
+                    # For the next frames, it's important the
+
                     # The whiteboard is empty, so we can quit the loop
                     break
 
@@ -882,6 +896,30 @@ class DnbGame():
         
         else:
             print('Este método solo es útil al principio, no tiene sentido usarlo con el juego ya comenzado.')
+    
+    def compare_frames(self, possibleCurrentFrame):
+        img1 = cv2.cvtColor(self.previousFrame.copy(), cv2.COLOR_BGR2GRAY)
+        img2 = cv2.cvtColor(possibleCurrentFrame.copy(), cv2.COLOR_BGR2GRAY)
+
+        # Ensure the images have the same shape
+        if img1.shape == img2.shape:
+            # Differenciate the frames
+            difference = cv2.absdiff(img1, img2)
+
+            thresh = cv2.threshold(difference, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+
+            # cv2.imshow("Threshold", cv2.resize(thresh, (640,480)))
+            # cv2.imshow('Difference', cv2.resize(difference, (640,480)))
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+        else:
+            print("Las imágenes tienen dimensiones diferentes.")
+
+        # Mean Squared Error (MSE)
+        mse = np.mean((thresh) ** 2)
+        print(f"MSE: {mse}")
+
+        return mse
 
     def play(self):
 
@@ -906,36 +944,46 @@ class DnbGame():
                 # Continue running this while loop until a line drawn by the player is detected
                 while runningLoop == True:
 
-                    print('Cuando termines de dibujar la línea, apretá "m".')
-                    keyboard.wait('m')
+                    # print('Cuando termines de dibujar la línea, apretá "m".')
+                    # keyboard.wait('m')
 
                     # Detect the board
                     averageTcpMatrixTransformed, boardFrame = self.detect_board()
 
-                    # Detect lines
-                    detectedLinesList, newLineDetected = self.detect_lines(averageTcpMatrixTransformed, boardFrame)
+                    diffFrameError = self.compare_frames(boardFrame)
 
-                    # If a new line was detected...
-                    if newLineDetected == True:
+                    if diffFrameError <= self.AcceptedDiffFrameError:
 
-                        # Update the loop control variable to manage loop execution
-                        runningLoop = False
+                        # Detect lines
+                        detectedLinesList, newLineDetected = self.detect_lines(averageTcpMatrixTransformed, boardFrame)
 
-                        # A new line was detected, so it has to be the last one in the list
-                        playerMove = detectedLinesList[-1]
-                        print(playerMove)
+                        # If a new line was detected...
+                        if newLineDetected == True:
 
-                        # Here is an issue to consider: If I drew three lines and then pressed ‘m,’, only the last one will be taken into account. 
-                        # But of course, this breaks the entire logic because the list would have two other lines that are supposedly already drawn, but in reality, they are not
-                        # So it would be: I draw a line, press ‘p’, draw a line, press ‘p’, and so on
+                            # Update the loop control variable to manage loop execution
+                            runningLoop = False
 
-                        # Make the move in the dnb engine
-                        self.gameDnbpyLib.select_edge(playerMove, currentPlayer)
+                            # A new line was detected, so it has to be the last one in the list
+                            playerMove = detectedLinesList[-1]
+                            print(playerMove)
 
-                        print(f'Movimiento de {self.players[0]}: {playerMove}.')
+                            # Here is an issue to consider: If I drew three lines and then pressed ‘m,’, only the last one will be taken into account. 
+                            # But of course, this breaks the entire logic because the list would have two other lines that are supposedly already drawn, but in reality, they are not
+                            # So it would be: I draw a line, press ‘p’, draw a line, press ‘p’, and so on
 
+                            # Make the move in the dnb engine
+                            self.gameDnbpyLib.select_edge(playerMove, currentPlayer)
+
+                            print(f'Movimiento de {self.players[0]}: {playerMove}.')
+
+                            # Update the previous frame
+                            self.previousFrame = boardFrame
+
+                        else:
+                            print('No se detectó que hayas dibujado alguna línea.')
+                        
                     else:
-                        print('No se detectó que hayas dibujado alguna línea.')
+                        print('Se detectaron interferencias sobre la pizarra...')
 
             # If the robot makes the move...
             elif currentPlayer == self.players[1]:
@@ -974,24 +1022,31 @@ class DnbGame():
                     # Detect the board
                     averageTcpMatrixTransformed, boardFrame = self.detect_board()
 
-                    # Detect lines
-                    detectedLinesList, newLineDetected = self.detect_lines(averageTcpMatrixTransformed, boardFrame)
+                    diffFrameError = self.compare_frames(boardFrame)
 
-                    if newLineDetected == True:
-                        if detectedLinesList[-1] == robotMove:
+                    if diffFrameError <= self.AcceptedDiffFrameError:
 
-                            # Update the loop control variable to manage loop execution
-                            runningLoop = False
+                        # Detect lines
+                        detectedLinesList, newLineDetected = self.detect_lines(averageTcpMatrixTransformed, boardFrame)
 
-                            # Make the move in the dnb engine
-                            self.gameDnbpyLib.select_edge(robotMove, currentPlayer)
+                        if newLineDetected == True:
+                            if detectedLinesList[-1] == robotMove:
 
-                            print(f'Movimiento del {self.players[1].lower()}: {robotMove}.')
+                                # Update the loop control variable to manage loop execution
+                                runningLoop = False
 
+                                # Make the move in the dnb engine
+                                self.gameDnbpyLib.select_edge(robotMove, currentPlayer)
+
+                                print(f'Movimiento del {self.players[1].lower()}: {robotMove}.')
+
+                                # Update the previous frame
+                                self.previousFrame = boardFrame
+
+                            else:
+                                print(f'No se dibujó la línea en el casillero correcto ({detectedLinesList[-1]}). Bórrela de la pizarra.')
                         else:
-                            print(f'No se dibujó la línea en el casillero correcto ({detectedLinesList[-1]}). Bórrela de la pizarra.')
-                    else:
-                        print('No se detectó que el robot haya dibujado alguna línea.')
+                            print('No se detectó que el robot haya dibujado alguna línea.')
             
             # Print the score in the terminal
             self.show_score()

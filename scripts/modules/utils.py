@@ -285,11 +285,11 @@ def red_color_detection(croppedImage):
     hsv_image = cv2.cvtColor(croppedImage, cv2.COLOR_BGR2HSV)
 
     # Lower red range
-    lower_red1 = np.array([0, 100, 100])
+    lower_red1 = np.array([0, 50, 50])
     upper_red1 = np.array([10, 255, 255])
 
     # Upper red range
-    lower_red2 = np.array([170, 100, 100])
+    lower_red2 = np.array([170, 50, 50])
     upper_red2 = np.array([180, 255, 255])
 
     # lower_red1 = np.array([0, 100, 70])
