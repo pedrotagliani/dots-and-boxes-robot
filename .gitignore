@@ -228,7 +228,6 @@ $RECYCLE.BIN/
 # Auxiliar files
 Practica_trayectorias.ipynb
 test_images/
-color_detection.py
 image_diff.py
 main_gui.py
 trajectory_and_control.py
