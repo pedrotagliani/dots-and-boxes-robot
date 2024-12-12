@@ -232,5 +232,6 @@ image_diff.py
 main_gui.py
 trajectory_and_control.py
 assets/
+python_esp32_communication.py
 
 # End of https://www.toptal.com/developers/gitignore/api/python,platformio,windows,visualstudiocode
