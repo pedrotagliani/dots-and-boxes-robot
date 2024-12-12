@@ -28,7 +28,7 @@ marginError = 10
 def start_communication_with_robot(port):
     # Create the serial communication object
     ser = serial.Serial(port, 115200)
-    time.sleep(4)  # Wait for the connection to establish
+    # time.sleep(4)  # Wait for the connection to establish
 
     return ser
 
@@ -255,34 +255,60 @@ def move_robot_to(fromPoint, toPoint):
 
 if __name__ == '__main__':
 
-    z = 8.8
-    pitchAngle = 16.0
+    # z = 8.8
+    # pitchAngle = 8.0
+
+    # gameArray = np.array(
+    #     # First row
+    #     [[[23.8 - 0.6, -5.4 - 0.1,  z - 0.5, pitchAngle],
+    #     [23.4 - 0.1, -1.8,  z - 0.6, pitchAngle],
+    #     [23.4 + 0.4,  1.8 - 0.1,  z - 0.4, pitchAngle],
+    #     [23.4 - 0.1,  5.4 - 0.1, z - 0.6, pitchAngle]],
+
+    #     # Second row
+    #     [[27.0 - 1.2, -5.4 + 0.1,  z - 1.1, pitchAngle],
+    #     [27.0 - 0.9, -1.8 + 0.1,  z - 1.1, pitchAngle],
+    #     [27.0 - 0.7,  1.8 + 0.1,  z - 1.2, pitchAngle],
+    #     [27.0 - 0.9,  5.4 - 0.1,  z - 1.3, pitchAngle]],
+
+    #     # Third row
+    #     [[30.6 - 1.5, -5.4 + 0.3,  z - 0.8, pitchAngle],
+    #     [30.6 - 1.1, -1.8 + 0.2,  z - 0.7, pitchAngle],
+    #             # [30.6 - 1.1, -1.8 + 0.2,  z - 0.8, pitchAngle],
+    #     [30.6 - 1.0,  1.8 + 0.1,  z - 0.7, pitchAngle],
+    #                     # [30.6 - 1.0,  1.8 + 0.1,  z - 0.8, pitchAngle],
+    #     [30.6 - 1.5,  5.4,  z - 1.1, pitchAngle]]]
+    # )
+
+    z = 6.4
+    pitchAngle = 8.0
 
     gameArray = np.array(
         # First row
-        [[[23.8 - 0.6, -5.4 - 0.1,  z - 0.5, pitchAngle],
-        [23.4 - 0.1, -1.8,  z - 0.6, pitchAngle],
-        [23.4 + 0.4,  1.8 - 0.1,  z - 0.4, pitchAngle],
-        [23.4 - 0.1,  5.4 - 0.1, z - 0.6, pitchAngle]],
+        [[[23.8 - 0.3, -5.4 + 0.4,  z + 0.6, pitchAngle],
+        # [[[23.8 - 0.2, -5.4 + 0.4,  z + 0.6, pitchAngle],
+        [23.4 + 0.4, -1.8 + 0.4,  z + 0.6, pitchAngle],
+        [23.4 + 0.6,  1.8 + 0.8,  z + 0.6, pitchAngle],
+        # [23.4 + 0.6,  1.8 + 0.6,  z + 0.6, pitchAngle],
+        [23.4 + 0.2,  5.4 + 0.7, z + 0.6, pitchAngle]],
 
         # Second row
-        [[27.0 - 1.2, -5.4 + 0.1,  z - 1.1, pitchAngle],
-        [27.0 - 0.9, -1.8 + 0.1,  z - 1.1, pitchAngle],
-        [27.0 - 0.7,  1.8 + 0.1,  z - 1.2, pitchAngle],
-        [27.0 - 0.9,  5.4 - 0.1,  z - 1.3, pitchAngle]],
+        [[27.0 - 0.5, -5.4 + 0.4,  z + 0.3, pitchAngle],
+        [27.0 - 0.3, -1.8 + 0.5,  z + 0.2, pitchAngle],
+        [27.0 - 0.1,  1.8 + 0.5,  z + 0.3, pitchAngle],
+        [27.0 - 0.6,  5.4 + 0.6,  z + 0.3, pitchAngle]],
 
         # Third row
-        [[30.6 - 1.5, -5.4 + 0.3,  z - 0.8, pitchAngle],
-        [30.6 - 1.1, -1.8 + 0.2,  z - 0.7, pitchAngle],
-                # [30.6 - 1.1, -1.8 + 0.2,  z - 0.8, pitchAngle],
-        [30.6 - 1.0,  1.8 + 0.1,  z - 0.7, pitchAngle],
-                        # [30.6 - 1.0,  1.8 + 0.1,  z - 0.8, pitchAngle],
-        [30.6 - 1.5,  5.4,  z - 1.1, pitchAngle]]]
+        [[30.6 - 1.5, -5.4 + 0.8,  z - 0.3, pitchAngle],
+        [30.6 - 1.4, -1.8 + 1,  z - 0.3, pitchAngle],
+        [30.6 - 1.2,  1.8 + 0.9,  z - 0.3, pitchAngle],
+        [30.6 - 1.5,  5.4 + 0.6,  z - 0.3, pitchAngle]]]
     )
 
-    p0 = list(gameArray[1][2])
 
-    p1 = list(gameArray[2][2])
+    p0 = list(gameArray[0][0])
+
+    p1 = list(gameArray[1][0])
  
     make_robot_play(p0, p1)
 

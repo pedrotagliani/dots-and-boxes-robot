@@ -5,7 +5,7 @@ l1 = 14.638
 l2 = 12.725
 l3 = 10.222
 l4 = 11.200
-l5 = 7.600
+l5 = 8.200
 
 def inverse_kinematics(px, py, pz, pitchAngle): # El pitchAngle recibido está en radianes
     try:

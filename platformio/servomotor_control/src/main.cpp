@@ -185,7 +185,7 @@ void setup() {
     pinMode(MS2_PIN, OUTPUT);
     pinMode(MS3_PIN, OUTPUT);
 
-    // Set the 1/8 microstepping level for the servomotor
+    // Set the 1/8 microstepping level for the stepper
     digitalWrite(MS1_PIN, HIGH);
     digitalWrite(MS2_PIN, HIGH);
     digitalWrite(MS3_PIN, LOW);
@@ -838,7 +838,7 @@ void calculate_sync_speeds_no_gripper(bool stepperVelConstant){
     if (longestDistanceServo >= q1DeltaAngle) {
 
         // Set the servos speed [deg/s]
-        speedLongestDistanceServo = 20.0;
+        speedLongestDistanceServo = 26.0;
 
         // Calculate the it time will take the slowest servo to reach the desired point [s]
         float movementDurationSLongestDistanceServo = longestDistanceServo/speedLongestDistanceServo;
@@ -1026,7 +1026,13 @@ void go_back_home() {
 
     // Blocking servomotor movement
     // Gripper moves back first
-    servoGripper.easeTo(desiredJointAngles.q4, syncSpeeds.servosSyncSpeed);
+    // When going bakc, the gripper always goes from +x° to 120°
+    servoGripper.startEaseTo(desiredJointAngles.q4, syncSpeeds.servosSyncSpeed, START_UPDATE_BY_INTERRUPT);
+    bool isGripperMoving = true;
+
+    while (servoGripper.getCurrentAngle() < currentJointAngles.q4 + (desiredJointAngles.q4 - currentJointAngles.q4)*0.1) {
+        // Do nothing...
+    }
 
     // Non-blocking servomotors movement
     // The remaining motors move back synchronized
@@ -1169,16 +1175,30 @@ void go_to_point_from_home() {
                     servoElbow.setEaseTo(desiredJointAngles.q3, syncSpeeds.servosSyncSpeed);
                     servoShoulder.startEaseToD(desiredJointAngles.q2, servoElbow.mMillisForCompleteMove);
                 }
+
+                bool isGripperMoving = false;
                 
                 stepper.setAcceleration(accelStepperSync);
                 stepper.moveTo(deg_to_steps(desiredJointAngles.q1));
                 // stepper.runToPosition();  // Blocks until it reaches the position
                 while(stepper.currentPosition() != deg_to_steps(desiredJointAngles.q1)){
-                    stepper.run();  
+                    stepper.run();
+
+                    if (isGripperMoving == false){
+                        // Selvo shoulder will have the longest distance to travel. It's always from 80° to a smaller value
+                        if (servoShoulder.getCurrentAngle() < currentJointAngles.q2 - q2DeltaAngle*0.1) {
+                            servoGripper.startEaseTo(desiredJointAngles.q4, syncSpeeds.servosSyncSpeed, START_UPDATE_BY_INTERRUPT);
+                            isGripperMoving = true;
+                        } 
+                    } 
                 }
                 // Blocking servomotor movement
-                // Gripper moves back first
-                servoGripper.easeTo(desiredJointAngles.q4, syncSpeeds.servosSyncSpeed);
+                if (isGripperMoving == false) {
+                    if (servoShoulder.getCurrentAngle() < currentJointAngles.q2 - q2DeltaAngle*0.1) {
+                        servoGripper.easeTo(desiredJointAngles.q4, syncSpeeds.servosSyncSpeed);
+                        isGripperMoving = true;
+                    }
+                }
 
                 while (ServoEasing::areInterruptsActive()) {
                     true;

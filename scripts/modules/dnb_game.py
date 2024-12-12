@@ -78,28 +78,28 @@ class DnbGame():
         # zbp = 4 # CHECK
 
         # self.tbpointsMatrix = utils.get_distance_matrix_from_robot_to_points(xbp1, ybp1, zbp, self.dotsHeight, self.dotsWidth, self.distanceBetweenDots)
-
-        z = 8.8
-        pitchAngle = 16.0
+        
+        z = 6.4
+        pitchAngle = 8.0
 
         self.tbpointsMatrix = np.array(
             # First row
-            [[[23.8 - 0.6, -5.4 - 0.1,  z - 0.5, pitchAngle],
-            [23.4 - 0.1, -1.8,  z - 0.6, pitchAngle],
-            [23.4 + 0.4,  1.8 - 0.1,  z - 0.4, pitchAngle],
-            [23.4 - 0.1,  5.4 - 0.1, z - 0.6, pitchAngle]],
+            [[[23.8 - 0.3, -5.4 + 0.4,  z + 0.6, pitchAngle],
+            [23.4 + 0.4, -1.8 + 0.4,  z + 0.6, pitchAngle],
+            [23.4 + 0.6,  1.8 + 0.8,  z + 0.6, pitchAngle],
+            [23.4 + 0.2,  5.4 + 0.7, z + 0.6, pitchAngle]],
 
             # Second row
-            [[27.0 - 1.2, -5.4 + 0.1,  z - 1.1, pitchAngle],
-            [27.0 - 0.9, -1.8 + 0.1,  z - 1.1, pitchAngle],
-            [27.0 - 0.7,  1.8 + 0.1,  z - 1.2, pitchAngle],
-            [27.0 - 0.9,  5.4 - 0.1,  z - 1.3, pitchAngle]],
+            [[27.0 - 0.5, -5.4 + 0.4,  z + 0.3, pitchAngle],
+            [27.0 - 0.3, -1.8 + 0.5,  z + 0.2, pitchAngle],
+            [27.0 - 0.1,  1.8 + 0.5,  z + 0.3, pitchAngle],
+            [27.0 - 0.6,  5.4 + 0.6,  z + 0.3, pitchAngle]],
 
             # Third row
-            [[30.6 - 1.5, -5.4 + 0.3,  z - 0.8, pitchAngle],
-            [30.6 - 1.1, -1.8 + 0.2,  z - 0.7, pitchAngle],
-            [30.6 - 1.0,  1.8 + 0.1,  z - 0.7, pitchAngle],
-            [30.6 - 1.5,  5.4,  z - 1.1, pitchAngle]]]
+            [[30.6 - 1.5, -5.4 + 0.8,  z - 0.3, pitchAngle],
+            [30.6 - 1.4, -1.8 + 1,  z - 0.3, pitchAngle],
+            [30.6 - 1.2,  1.8 + 0.9,  z - 0.3, pitchAngle],
+            [30.6 - 1.5,  5.4 + 0.6,  z - 0.3, pitchAngle]]]
         )
 
         # The width of the wood is 21.4cm
@@ -108,7 +108,7 @@ class DnbGame():
 
         # Save the previous frame to compare to the possible current frame
         self.previousFrame = None
-        self.AcceptedDiffFrameError = 0.008
+        self.AcceptedDiffFrameError = 0.015
 
     def has_finished(self):
         return self.gameDnbpyLib.is_finished() # return True or False
@@ -655,10 +655,10 @@ class DnbGame():
                                 cv2.line(currentRectangle, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
                                 # CurrentRectangle is related with detectedLinesFrames
 
-                        cv2.imshow('Thresholding', threshInv)
-                        cv2.imshow('Horizontal line detection', currentRectangle)
-                        cv2.waitKey(0)
-                        cv2.destroyAllWindows()
+                        # cv2.imshow('Thresholding', threshInv)
+                        # cv2.imshow('Horizontal line detection', currentRectangle)
+                        # cv2.waitKey(0)
+                        # cv2.destroyAllWindows()
                         
                         # We are checking the current rectangle twice: 
                         # first to detect black lines or other general features, 
@@ -844,7 +844,7 @@ class DnbGame():
 
                     # Display how many ArUco markers are being detected
                     markersFoundString = f'{len(ids)} marcadores encontrados.'
-                    cv2.putText(frameCopy,markersFoundString,(20,20), cv2.FONT_HERSHEY_SIMPLEX, 0.6,(0,255,0),2)
+                    cv2.putText(frameCopy,markersFoundString,(60,60), cv2.FONT_HERSHEY_DUPLEX, 2,(0,255,0),2)
             
             cv2.imshow('Frame with markers', cv2.resize(frameCopy, (640, 480)))
             cv2.waitKey(1)
@@ -1047,7 +1047,9 @@ class DnbGame():
                                 print(f'No se dibujó la línea en el casillero correcto ({detectedLinesList[-1]}). Bórrela de la pizarra.')
                         else:
                             print('No se detectó que el robot haya dibujado alguna línea.')
-            
+                    else:
+                        print('Se detectaron interferencias sobre la pizarra...')
+
             # Print the score in the terminal
             self.show_score()
         
