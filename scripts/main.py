@@ -1,8 +1,6 @@
 # Import libraries
 from modules import camera, dnb_game_v2
-from modules import camera, dnb_game
-import cv2
-import keyboard
+# from modules import camera, dnb_game
 
 # Capture webcam
 videoSource = 0
@@ -16,7 +14,7 @@ markerSizeInCM = 3.8 # Size of the marker in centimetre
 
 # Game variables
 boardDotSize = (dotsWidth, dotsHeight)
-playerName = 'Gallardo'
+playerName = 'Player'
 difficulty = 'hard'
 firstPlayer = 0 # Player begins
 
@@ -28,10 +26,12 @@ frameHeight = int(cap.frameHeight)
 # print(frameHeight)
 
 # Start the game
-print('\nPresioná "s" para comenzar el juego.')
-userInput = input('>> ')
+print('\n¡Hola! Ingresá tu nombre:')
+playerName = input('>> ')
 
-if userInput == 's':
+if len(playerName) > 0:
+
+    print(f"\n ¡Perfecto, {playerName}!")
 
     # The game has started...
 
@@ -51,6 +51,7 @@ if userInput == 's':
     # Just play
     game.play()
 
+    # May be useful for debugging with dnb_game
     # Continue the loop as long as the game isn't over
     # while not game.has_finished():
 
@@ -65,6 +66,6 @@ if userInput == 's':
     #     # print('-------')
     
 else:
-    print(f'Presionaste "{userInput}", pero para que el juego inicie tenés que apretar "s".')
+    print(f'No ingresaste ningún nombre...')
 
 cap.release_camera()

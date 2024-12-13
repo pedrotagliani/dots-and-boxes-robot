@@ -1,11 +1,8 @@
 import serial
-import time
 
-# from interpolation import position_quintic_interpolation
 # from inverse_kinematics import inverse_kinematics
 # from forward_kinematics import forward_kinematics
 
-from modules.interpolation import position_quintic_interpolation
 from modules.inverse_kinematics import inverse_kinematics
 from modules.forward_kinematics import forward_kinematics
 
@@ -216,9 +213,6 @@ def make_robot_play(initialPoint, finalPoint):
         # It's time to convert the points to jont positions and then send them to the robotic arm actuators
         # We won't interpolate betweeen this points using the created function
         send_angles(ser, initialPoint, "b")
-
-        # Generate the trajectory to go from the initial point to the final point (game movement)
-        interpolatedPointsItoF = position_quintic_interpolation(initialPoint, finalPoint,70)
         
         # Send them to the robot
         # send_angles(ser, finalPoint, "c")
@@ -235,23 +229,6 @@ def make_robot_play(initialPoint, finalPoint):
     
     else:
         print("El robot no está en la posición de home. Tiene que reiniciar el juego y acomodar el brazo.")
-
-
-def move_robot_to(fromPoint, toPoint):
-    
-    # Establish the serial communication between the robot and the ESP32
-    ser = start_communication_with_robot('COM4')
-
-    interpolatedPointsHtoI = position_quintic_interpolation(fromPoint, toPoint)
-
-    send_angles(ser, interpolatedPointsHtoI)
-
-    print("Se completó el movimiento del robot.")
-    
-    # Close serial port
-    ser.close()
-
-
 
 if __name__ == '__main__':
 

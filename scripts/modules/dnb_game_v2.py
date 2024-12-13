@@ -110,6 +110,7 @@ class DnbGame():
         # Save the previous frame to compare to the possible current frame
         self.previousFrame = None
         self.AcceptedDiffFrameError = 0.70
+        # With a threshold of 0.70, we can accept small disturbances. However, any disturbances must be outside the gameboard
 
         self.averageTcpMatrixTransformed = None
         self.transformationMatrix = None
@@ -553,11 +554,11 @@ class DnbGame():
 
     def check_board_detection(self):
 
-        print("Ejecutando detección del tablero...")
+        print("\nEjecutando detección del tablero...")
 
         self.averageTcpMatrixTransformed, self.transformationMatrix = self.detect_board()
 
-        print("Se le mostrará la detección del tablero. Aprete la letra 'p' para continuar.")
+        print("Se muestra la detección del tablero. Apretá la letra 'p' para continuar.")
 
         # Boolean variable for loop control
         runningLoop = True
@@ -691,7 +692,7 @@ class DnbGame():
 
                             # Update the line detection status if necessary
                             if boardState[detectedHorizontalLineDnbpyConv] == 0:
-                                print('Nueva línea detectada:', str(detectedHorizontalLineDnbpyConv))
+                                # print('Nueva línea detectada:', str(detectedHorizontalLineDnbpyConv))
                                 detectedLinesList.append(detectedHorizontalLineDnbpyConv)
                                 newLineDetected = True # A NEW line was detected
 
@@ -772,7 +773,7 @@ class DnbGame():
                             
                             # Update the line detection status if necessary
                             if boardState[detectedVerticalLineDnbpyConv] == 0:
-                                print('Nueva línea detectada:', str(detectedVerticalLineDnbpyConv))
+                                # print('Nueva línea detectada:', str(detectedVerticalLineDnbpyConv))
                                 detectedLinesList.append(detectedVerticalLineDnbpyConv)
                                 newLineDetected = True # A NEW line was detected
 
@@ -789,7 +790,7 @@ class DnbGame():
 
         print('\nEs necesario chequear el setup. Si ves que todos los marcadores se detectan sin inconvenientes no tenés que hacer nada. De lo contrario vas a tener que solucionarlo.')
         print('Es conveniente que la cámara esté lo más cerca posible del tablero.')
-        print('Si la detección de los marcadores es buena, apretá la letra "m". Además, asegurate de que no se modifique la iluminación a lo largo de la partida.')
+        print('Si la detección de los marcadores es buena, apretá la letra "m". Además, asegurate de que no se modifique la iluminación ni la posición de la cámara a lo largo de la partida.')
 
         # Boolean variable for loop control
         runningLoop = True
@@ -892,7 +893,7 @@ class DnbGame():
 
                 if newLineDetected == False:
                     print('¡Excelente, la pizarra está vacía!')
-                    print('¡El juego ya puede comenzar!')
+                    print('\n¡El juego ya puede comenzar!')
 
                     # Save the current boardFrame as the previous frame
                     self.previousFrame = boardFrame
@@ -934,9 +935,14 @@ class DnbGame():
         # Normalized Euclidean Distance (NED)
         totalPixels = 1080*1920
         normEuclideanDistance = (np.linalg.norm(difference) / totalPixels)*100
-        # print(f"NED: {normEuclideanDistance}")
+        print(f"NED: {normEuclideanDistance}")
 
         return normEuclideanDistance
+
+    def is_diff_error_ok(self,boardFrame):
+        diffFrameError = self.compare_frames(boardFrame)
+
+        return diffFrameError <= self.AcceptedDiffFrameError
 
     def play(self):
 
@@ -967,9 +973,7 @@ class DnbGame():
                     # Get the current frame
                     boardFrame = self.get_current_frame_transformed()
 
-                    diffFrameError = self.compare_frames(boardFrame)
-
-                    if diffFrameError <= self.AcceptedDiffFrameError:
+                    if self.is_diff_error_ok(boardFrame): # If true...
 
                         # Detect lines
                         detectedLinesList, newLineDetected = self.detect_lines(boardFrame=boardFrame)
@@ -982,7 +986,6 @@ class DnbGame():
 
                             # A new line was detected, so it has to be the last one in the list
                             playerMove = detectedLinesList[-1]
-                            print(playerMove)
 
                             # Here is an issue to consider: If I drew three lines and then pressed ‘m,’, only the last one will be taken into account. 
                             # But of course, this breaks the entire logic because the list would have two other lines that are supposedly already drawn, but in reality, they are not
@@ -992,9 +995,15 @@ class DnbGame():
                             self.gameDnbpyLib.select_edge(playerMove, currentPlayer)
 
                             print(f'Movimiento de {self.players[0]}: {playerMove}.')
-
-                            sleep(0.2)
+                            
+                            # The camera increases the brightness significantly after a sudden change (e.g., when I remove my hand from the camera after drawing a line)
+                            # Therefore, it is advisable to wait a few seconds to allow the camera to stabilize again and then take another frame
+                            sleep(0.5)
+                            
                             boardFrame = self.get_current_frame_transformed()
+
+                            while not self.is_diff_error_ok(boardFrame):
+                                boardFrame = self.get_current_frame_transformed()
 
                             # Update the previous frame
                             self.previousFrame = boardFrame
@@ -1042,9 +1051,7 @@ class DnbGame():
                     # Get the current frame
                     boardFrame = self.get_current_frame_transformed()
 
-                    diffFrameError = self.compare_frames(boardFrame)
-
-                    if diffFrameError <= self.AcceptedDiffFrameError:
+                    if self.is_diff_error_ok(boardFrame):
 
                         # Detect lines
                         detectedLinesList, newLineDetected = self.detect_lines(boardFrame=boardFrame)
@@ -1060,8 +1067,14 @@ class DnbGame():
 
                                 print(f'Movimiento del {self.players[1].lower()}: {robotMove}.')
 
-                                sleep(0.2)
+                                # The camera increases the brightness significantly after a sudden change (e.g., when I remove my hand from the camera after drawing a line)
+                                # Therefore, it is advisable to wait a few seconds to allow the camera to stabilize again
+                                sleep(0.5)
+
                                 boardFrame = self.get_current_frame_transformed()
+
+                                while not self.is_diff_error_ok(boardFrame):
+                                    boardFrame = self.get_current_frame_transformed()
 
                                 # Update the previous frame
                                 self.previousFrame = boardFrame
