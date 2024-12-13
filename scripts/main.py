@@ -1,4 +1,5 @@
 # Import libraries
+from modules import camera, dnb_game_v2
 from modules import camera, dnb_game
 import cv2
 import keyboard
@@ -35,12 +36,14 @@ if userInput == 's':
     # The game has started...
 
     # Create a new game instance
-    game = dnb_game.DnbGame(boardDotSize = boardDotSize, playerName = playerName, difficulty = difficulty, 
+    game = dnb_game_v2.DnbGame(boardDotSize = boardDotSize, playerName = playerName, difficulty = difficulty, 
                             distanceBetweenDots = distanceBetweenDots, markerSizeInCM = markerSizeInCM, 
                             camera = cap, firstPlayer = firstPlayer)
 
-    # Check the illumination (manual configuration)
-    game.check_light()
+    # Check the physical setup (manual configuration)
+    game.check_setup()
+
+    game.check_board_detection()
 
     # Check if the board is empty
     game.is_whiteboard_empty()

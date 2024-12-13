@@ -5,6 +5,7 @@ import pickle
 import numpy as np
 import keyboard
 from modules import open_loop_traj_control
+from time import sleep
 
 class DnbGame():
     # boardDotSize (tuple) --> (dotsWidth, dotsHeight)
@@ -108,12 +109,16 @@ class DnbGame():
 
         # Save the previous frame to compare to the possible current frame
         self.previousFrame = None
-        self.AcceptedDiffFrameError = 0.015
+        self.AcceptedDiffFrameError = 0.70
+
+        self.averageTcpMatrixTransformed = None
+        self.transformationMatrix = None
 
     def has_finished(self):
         return self.gameDnbpyLib.is_finished() # return True or False
     
-    def detect_board(self, showFrames = True):
+    # This function is used to detect the game board. It has to be used once, but the camera needs to remain fixed in the same position the whole match
+    def detect_board(self):
 
         # Variables to store the tcp matrices when the whiteboard is being detected
         setOfTcpointsMatrix = []
@@ -132,19 +137,6 @@ class DnbGame():
             frame = self.camera.get_frame()
 
             if frame is not None:
-
-                # Initialize needed variables (Set as None at the beginning)
-                # In case a specific iteration doesn't pass the if statement below, at least None is returned. If variables were not declared, a Python error would be raised
-                overlay = None
-                frameWithOverlay = None
-                boardFrame = None
-                testMarkerstoPointsFrame = None
-                boardWithDotsFrame = None
-                boardWithDotsAverageFrame = None
-                boardWithDotsAverageAverage = None
-
-                # Update current board detection status (iteration)
-                boardDetectedRightNow = False
 
                 # Make copies of the original frame
                 frameCopy = frame.copy()
@@ -179,9 +171,6 @@ class DnbGame():
                     # If the IDs 0, 1, 2 and 3 are being detected and no other IDs are interfering, then execute the if statement
                     if (0 in ids) and (1 in ids) and (2 in ids) and (3 in ids) and len(ids) == 4: # This is done to avoid false detections (for example, [2,1,3,38])
                         
-                        # Update the board detection variable (iteration)
-                        boardDetectedRightNow = True
-
                         # Array to store the left corner from all the markers
                         markersLeftCorners = []
 
@@ -244,7 +233,7 @@ class DnbGame():
                         alpha = 0.4  # Transparency factor
                         beta = 1 - alpha # Transparency factor
                         gamma = 0 # Transparency factor
-                        frameWithOverlay = cv2.addWeighted(frame.copy(), alpha, overlay, beta, gamma)
+                        # frameWithOverlay = cv2.addWeighted(frame.copy(), alpha, overlay, beta, gamma)
 
                         # Destination coordinates sorted by top left, top right, bottom left, bottom right:
                         ptsDestination = np.float32([[0,0],[self.frameWidth,0],[0,self.frameHeight],[self.frameWidth,self.frameHeight]])
@@ -261,8 +250,7 @@ class DnbGame():
                         transformationMatrix = cv2.getPerspectiveTransform(ptsSource,ptsDestination)
 
                         # Apply the transformation matrix in the original frame
-                        boardFrame = cv2.warpPerspective(frame.copy(),transformationMatrix,(self.frameWidth,self.frameHeight))
-
+                        # boardFrame = cv2.warpPerspective(frame.copy(),transformationMatrix,(self.frameWidth,self.frameHeight))
 
                         # Now, I should find where the dots are placed on the whiteboard
                         # The markers are fixed (they are always in the same place), so the distance from every marker to the circles on the whiteboard will always be the same
@@ -290,7 +278,7 @@ class DnbGame():
 
                         # Translation vector from the marker 0 to the nearest circle (0 to point)
                         t0p = np.array([x0p, y0p, z0p])
-                        t0pHomogeneous = np.array([x0p, y0p, z0p, 1])
+                        # t0pHomogeneous = np.array([x0p, y0p, z0p, 1])
 
                         # Translation vector from the camera to the point in the real world coordinate
                         # tcp = np.matmul(Ac0,t0pHomogeneous)[:-1]
@@ -369,8 +357,7 @@ class DnbGame():
                         cv2.circle(frameCopy,(int(tcpProjected3[0]),int(tcpProjected3[1])),5,(0,255,0),thickness=-1)
 
                         # Apply the transformation matrix in the frame to draw the four points
-                        testMarkerstoPointsFrame = cv2.warpPerspective(frameCopy,transformationMatrix,(self.frameWidth, self.frameHeight))
-
+                        # testMarkerstoPointsFrame = cv2.warpPerspective(frameCopy,transformationMatrix,(self.frameWidth, self.frameHeight))
 
                         # The purpose now is to find the location every 3D points with respect to the camera frame and then project them to the image plane (2D)
                         # Each point is separated by 3.6cm, so I'll use tnp (n = 0,1,2,3) as an initial reference
@@ -503,7 +490,7 @@ class DnbGame():
                         # tcpointsMatrix.shape ---> (6,6,4,2)
 
                         # Apply the transformation matrix in the frame
-                        boardWithDotsFrame = cv2.warpPerspective(frameCopy2,transformationMatrix,(self.frameWidth,self.frameHeight))
+                        # boardWithDotsFrame = cv2.warpPerspective(frameCopy2,transformationMatrix,(self.frameWidth,self.frameHeight))
 
                         # Compute the average on the second axis
                         tcpointsMatrix = np.mean(tcpointsMatrix, axis=2)
@@ -517,8 +504,7 @@ class DnbGame():
                                 cv2.circle(frameCopy3,(int(tcpointsMatrix[row][column][0]),int(tcpointsMatrix[row][column][1])),5,(255,0,0),thickness=-1)
 
                         # Apply the transformation matrix in the frame
-                        boardWithDotsAverageFrame = cv2.warpPerspective(frameCopy3,transformationMatrix,(self.frameWidth,self.frameHeight))
-
+                        # boardWithDotsAverageFrame = cv2.warpPerspective(frameCopy3,transformationMatrix,(self.frameWidth,self.frameHeight))
 
                         # The problem now is that since it is constantly detecting the ArUco markers (which can be very unstable depending on the ambient light), 
                         # the matrix of circles on the board appears to move… so if I want to identify a line there, there could be false detections.
@@ -544,69 +530,76 @@ class DnbGame():
                                     cv2.circle(frameCopy4,(int(averageTcpMatrix[row][column][0]),int(averageTcpMatrix[row][column][1])),5,(255,0,0),thickness=-1)
 
                             # Apply the transformation matrix in the frame
-                            boardWithDotsAverageAverage = cv2.warpPerspective(frameCopy4,transformationMatrix,(self.frameWidth,self.frameHeight))
+                            # boardWithDotsAverageAverage = cv2.warpPerspective(frameCopy4,transformationMatrix,(self.frameWidth,self.frameHeight))
 
                             # Adapt the perspective of the points in averageTcpMatrix. This way we can use these points in the cropped frame where the whiteboard is isolated from the rest of the image
                             averageTcpMatrixTransformed = cv2.perspectiveTransform(averageTcpMatrix, transformationMatrix)
 
                             self.boardDetected = True # Update the detection status (average)
+                        
+                    else:
+                        pass
+                        # No se están detectando todos los marcadores...
 
                 else:
                     # Display that no ArUco markers were detected
                     markersnotFoundString = 'No se han encontrado marcadores'
                     cv2.putText(frameCopy,markersnotFoundString,(20,20), cv2.FONT_HERSHEY_SIMPLEX, 0.6,(0,255,0),2)
-
-                if showFrames == True:
-                    # Display windows
-                    cv2.imshow('Frame with markers', cv2.resize(frameCopy, (640, 480)))
-
-                    if boardDetectedRightNow == True:
-                        cv2.imshow('Original frame with overlay', cv2.resize(frameWithOverlay, (640,480)))
-                        cv2.imshow('Game board', cv2.resize(boardFrame, (640,480)))
-                        cv2.imshow('Testing board points in each ArUco marker', cv2.resize(testMarkerstoPointsFrame, (640,480)))
-                        cv2.imshow('Board with dots', cv2.resize(boardWithDotsFrame, (640,480)))
-                        cv2.imshow('Board with dots average', cv2.resize(boardWithDotsAverageFrame, (640,480)))
-
-                        if self.boardDetected == True:
-                            cv2.imshow('Board with dots average average', cv2.resize(boardWithDotsAverageAverage, (640,480)))
-
-                        if self.previousFrame is not None:
-                            cv2.imshow('Previous frame', cv2.resize(self.previousFrame, (640,480)))
-
-                    
-                    # if cv2.waitKey(1) & 0xFF == ord('q'):
-                    #     break
-                    
-                    # Wait a short period to update the window
-                    cv2.waitKey(1)
             
             else:
                 print('No se pudo leer un frame.')
-                # In progress...
 
-        # cv2.imwrite("modules/test_images/test.png", boardFrame)
+        return averageTcpMatrixTransformed, transformationMatrix
 
-        return averageTcpMatrixTransformed, boardFrame
+    def check_board_detection(self):
 
-    def detect_lines(self, averageTcpMatrixTransformed, boardFrame, showFrames = True):
+        print("Ejecutando detección del tablero...")
+
+        self.averageTcpMatrixTransformed, self.transformationMatrix = self.detect_board()
+
+        print("Se le mostrará la detección del tablero. Aprete la letra 'p' para continuar.")
+
+        # Boolean variable for loop control
+        runningLoop = True
+
+        # Stop loop event
+        def stop_loop(event):
+            
+            # https://stackoverflow.com/questions/1261875/what-does-nonlocal-do-in-python-3
+
+            nonlocal runningLoop # Allows modifying 'runningLoop' in the outer scope
+            runningLoop = False
+        
+        # Register the event with the 'm' key
+        keyboard.on_press_key("p", stop_loop)
+
+        while runningLoop == True:
+            # Obtain frame
+            frame = self.camera.get_frame()
+
+            if frame is not None:
+
+                boardFrame = cv2.warpPerspective(frame.copy(),self.transformationMatrix,(self.frameWidth,self.frameHeight))
+
+                for row in range(self.dotsHeight):
+                    for column in range(self.dotsWidth):
+                        # Draw the new matrix on the frame
+                        cv2.circle(boardFrame,(int(self.averageTcpMatrixTransformed[row][column][0]),int(self.averageTcpMatrixTransformed[row][column][1])),14,(255,0,0),thickness=-1)
+                
+                cv2.imshow('Board with dots average average', cv2.resize(boardFrame, (640,480)))
+
+                # Wait a short period to update the window
+                cv2.waitKey(1)
+
+        cv2.destroyAllWindows()
+
+    def detect_lines(self, boardFrame, showFrames = True):
 
         # Get board state
         boardState = self.gameDnbpyLib.get_board_state()
 
         # Create the frame that will be used to draw the detected lines
         detectedLinesFrame = boardFrame.copy()
-
-        # It's necessary to add padding to the frame give that, when creating the currentRectangle, its values might fall outside of the image boundaries if padding is not applied
-        # This issue can be easily observed in the top padding of the first row of lines
-
-        # Size of the margin in pixels
-        margin = 5
-
-        # Apply padding with a white background (255, 255, 255)
-        detectedLinesFrame = cv2.copyMakeBorder(detectedLinesFrame, top=margin, bottom=margin, left=margin, right=margin, borderType=cv2.BORDER_CONSTANT, value=[255, 255, 255])
-
-        # Since we've added padding to the frame, the points in averageTcpMatrixTransformed need to be updated according to the margin added
-        averageTcpMatrixTransformed += margin
 
         # With this boolean variable, I'll be able to determine if a NEW line was detected
         newLineDetected = False
@@ -633,11 +626,11 @@ class DnbGame():
                 for column in range(self.dotsWidth):
                     # If it's the first row, do nothing
                     if lastDot == [None, None]:
-                        lastDot = [averageTcpMatrixTransformed[row][column][0], averageTcpMatrixTransformed[row][column][1]]
+                        lastDot = [self.averageTcpMatrixTransformed[row][column][0], self.averageTcpMatrixTransformed[row][column][1]]
 
                     else:
                         # Crop the image to get the particular segment between the two points
-                        currentRectangle, topLeftRect, bottomRightRect = utils.crop_image(lastDot, averageTcpMatrixTransformed[row][column], lineType, detectedLinesFrame, '1080p', self.boardNumRows, self.boardNumColumns)
+                        currentRectangle, topLeftRect, bottomRightRect = utils.crop_image(lastDot, self.averageTcpMatrixTransformed[row][column], lineType, detectedLinesFrame, '1080p', self.boardNumRows, self.boardNumColumns)
 
                         # Apply Otsu's automatic thresholding
                         threshInv = utils.apply_thresholding(currentRectangle)
@@ -688,7 +681,7 @@ class DnbGame():
                             # cv2.destroyAllWindows()
 
                         # Update the past point
-                        lastDot = [averageTcpMatrixTransformed[row][column][0], averageTcpMatrixTransformed[row][column][1]]
+                        lastDot = [self.averageTcpMatrixTransformed[row][column][0], self.averageTcpMatrixTransformed[row][column][1]]
 
                         # Get the dnbpy contention of the detected line
                         if lineDetection is not None:
@@ -714,10 +707,10 @@ class DnbGame():
                 for row in range(self.dotsHeight):
                     # If it's the first row, do nothing
                     if lastDot == [None, None]:
-                        lastDot = [averageTcpMatrixTransformed[row][column][0], averageTcpMatrixTransformed[row][column][1]]
+                        lastDot = [self.averageTcpMatrixTransformed[row][column][0], self.averageTcpMatrixTransformed[row][column][1]]
                     else:
                         # Crop the image to get the particular segment between the two points
-                        currentRectangle, topLeftRect, bottomRightRect = utils.crop_image(lastDot, averageTcpMatrixTransformed[row][column], lineType, detectedLinesFrame, '1080p', self.boardNumRows, self.boardNumColumns)
+                        currentRectangle, topLeftRect, bottomRightRect = utils.crop_image(lastDot, self.averageTcpMatrixTransformed[row][column], lineType, detectedLinesFrame, '1080p', self.boardNumRows, self.boardNumColumns)
                         
                         # Apply Otsu's automatic thresholding
                         threshInv = utils.apply_thresholding(currentRectangle)
@@ -768,7 +761,7 @@ class DnbGame():
                             # cv2.destroyAllWindows()
 
                         # Update the past point
-                        lastDot = [averageTcpMatrixTransformed[row][column][0], averageTcpMatrixTransformed[row][column][1]]
+                        lastDot = [self.averageTcpMatrixTransformed[row][column][0], self.averageTcpMatrixTransformed[row][column][1]]
                         
                         # Get the dnbpy contention of the detected line
                         if lineDetection is not None:
@@ -790,12 +783,12 @@ class DnbGame():
                 # Wait a short period to update the window
                 cv2.waitKey(1)
         
-    
         return detectedLinesList, newLineDetected
 
     def check_setup(self):
 
-        print('\nEs necesario chequear la iluminación. Si ves que los marcadores se detectan sin inconvenientes no tenés que hacer nada. De lo contrario vas a tener que solucionarlo.')
+        print('\nEs necesario chequear el setup. Si ves que todos los marcadores se detectan sin inconvenientes no tenés que hacer nada. De lo contrario vas a tener que solucionarlo.')
+        print('Es conveniente que la cámara esté lo más cerca posible del tablero.')
         print('Si la detección de los marcadores es buena, apretá la letra "m". Además, asegurate de que no se modifique la iluminación a lo largo de la partida.')
 
         # Boolean variable for loop control
@@ -846,11 +839,38 @@ class DnbGame():
                     markersFoundString = f'{len(ids)} marcadores encontrados.'
                     cv2.putText(frameCopy,markersFoundString,(60,60), cv2.FONT_HERSHEY_DUPLEX, 2,(0,255,0),2)
             
-            cv2.imshow('Frame with markers', cv2.resize(frameCopy, (640, 480)))
-            cv2.waitKey(1)
+                cv2.imshow('Frame with markers', cv2.resize(frameCopy, (640, 480)))
+                cv2.waitKey(1)
         
+        cv2.destroyAllWindows()
+
         # After typing "m"...
         print('Bien, iluminación confirmada.')
+
+    def get_current_frame_transformed(self):
+        
+        frame = self.camera.get_frame()
+
+        if frame is not None:
+
+            boardFrame = cv2.warpPerspective(frame.copy(),self.transformationMatrix,(self.frameWidth,self.frameHeight))
+
+            boardFrameCopy1 = boardFrame.copy()
+
+            for row in range(self.dotsHeight):
+                for column in range(self.dotsWidth):
+                    # Draw the new matrix on the frame
+                    cv2.circle(boardFrameCopy1,(int(self.averageTcpMatrixTransformed[row][column][0]),int(self.averageTcpMatrixTransformed[row][column][1])),14,(255,0,0),thickness=-1)
+
+            cv2.imshow('Game board', cv2.resize(boardFrame, (640,480)))
+            cv2.imshow('Board with dots average average', cv2.resize(boardFrameCopy1, (640,480)))
+
+            if self.previousFrame is not None:
+                cv2.imshow('Previous frame', cv2.resize(self.previousFrame, (640,480)))
+
+            cv2.waitKey(1)
+
+            return boardFrame
 
     def is_whiteboard_empty(self):
 
@@ -864,12 +884,11 @@ class DnbGame():
             while True:
 
                 print('\nChequeando pizarra...')
-                
-                # Detect the board
-                averageTcpMatrixTransformed, boardFrame = self.detect_board()
+
+                boardFrame = self.get_current_frame_transformed()
 
                 # Detect lines
-                detectedLinesList, newLineDetected = self.detect_lines(averageTcpMatrixTransformed = averageTcpMatrixTransformed, boardFrame = boardFrame)
+                detectedLinesList, newLineDetected = self.detect_lines(boardFrame=boardFrame)
 
                 if newLineDetected == False:
                     print('¡Excelente, la pizarra está vacía!')
@@ -879,8 +898,6 @@ class DnbGame():
                     self.previousFrame = boardFrame
                     # Ensure this frame contains only the game board and no additional elements
                     # This is crucial since we don't have a previous image to compare with, as it is defined as None initially
-
-                    # For the next frames, it's important the
 
                     # The whiteboard is empty, so we can quit the loop
                     break
@@ -893,7 +910,7 @@ class DnbGame():
                         print('Bien, volviendo a chequear la pizarra...')
                     else:
                         print('Ah, bueno, te hacés el vivo. Vuelvo a chequear la pizarra, me da igual si la borraste o no.')
-        
+
         else:
             print('Este método solo es útil al principio, no tiene sentido usarlo con el juego ya comenzado.')
     
@@ -906,20 +923,20 @@ class DnbGame():
             # Differenciate the frames
             difference = cv2.absdiff(img1, img2)
 
-            thresh = cv2.threshold(difference, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-
-            # cv2.imshow("Threshold", cv2.resize(thresh, (640,480)))
             # cv2.imshow('Difference', cv2.resize(difference, (640,480)))
+            # cv2.imshow('1', cv2.resize(img1, (640,480)))
+            # cv2.imshow('2', cv2.resize(img2, (640,480)))
             # cv2.waitKey(0)
             # cv2.destroyAllWindows()
         else:
             print("Las imágenes tienen dimensiones diferentes.")
 
-        # Mean Squared Error (MSE)
-        mse = np.mean((thresh) ** 2)
-        print(f"MSE: {mse}")
+        # Normalized Euclidean Distance (NED)
+        totalPixels = 1080*1920
+        normEuclideanDistance = (np.linalg.norm(difference) / totalPixels)*100
+        # print(f"NED: {normEuclideanDistance}")
 
-        return mse
+        return normEuclideanDistance
 
     def play(self):
 
@@ -947,15 +964,15 @@ class DnbGame():
                     # print('Cuando termines de dibujar la línea, apretá "m".')
                     # keyboard.wait('m')
 
-                    # Detect the board
-                    averageTcpMatrixTransformed, boardFrame = self.detect_board()
+                    # Get the current frame
+                    boardFrame = self.get_current_frame_transformed()
 
                     diffFrameError = self.compare_frames(boardFrame)
 
                     if diffFrameError <= self.AcceptedDiffFrameError:
 
                         # Detect lines
-                        detectedLinesList, newLineDetected = self.detect_lines(averageTcpMatrixTransformed, boardFrame)
+                        detectedLinesList, newLineDetected = self.detect_lines(boardFrame=boardFrame)
 
                         # If a new line was detected...
                         if newLineDetected == True:
@@ -976,14 +993,17 @@ class DnbGame():
 
                             print(f'Movimiento de {self.players[0]}: {playerMove}.')
 
+                            sleep(0.2)
+                            boardFrame = self.get_current_frame_transformed()
+
                             # Update the previous frame
                             self.previousFrame = boardFrame
 
-                        else:
-                            print('No se detectó que hayas dibujado alguna línea.')
+                    #     else:
+                    #         print('No se detectó que hayas dibujado alguna línea.')
                         
-                    else:
-                        print('Se detectaron interferencias sobre la pizarra...')
+                    # else:
+                    #     print('Se detectaron interferencias sobre la pizarra...')
 
             # If the robot makes the move...
             elif currentPlayer == self.players[1]:
@@ -1019,15 +1039,15 @@ class DnbGame():
                     # print('Cuando el robot haya terminado de dibujar la línea, apretá "m".')
                     # keyboard.wait('m')
 
-                    # Detect the board
-                    averageTcpMatrixTransformed, boardFrame = self.detect_board()
+                    # Get the current frame
+                    boardFrame = self.get_current_frame_transformed()
 
                     diffFrameError = self.compare_frames(boardFrame)
 
                     if diffFrameError <= self.AcceptedDiffFrameError:
 
                         # Detect lines
-                        detectedLinesList, newLineDetected = self.detect_lines(averageTcpMatrixTransformed, boardFrame)
+                        detectedLinesList, newLineDetected = self.detect_lines(boardFrame=boardFrame)
 
                         if newLineDetected == True:
                             if detectedLinesList[-1] == robotMove:
@@ -1040,15 +1060,18 @@ class DnbGame():
 
                                 print(f'Movimiento del {self.players[1].lower()}: {robotMove}.')
 
+                                sleep(0.2)
+                                boardFrame = self.get_current_frame_transformed()
+
                                 # Update the previous frame
                                 self.previousFrame = boardFrame
 
                             else:
                                 print(f'No se dibujó la línea en el casillero correcto ({detectedLinesList[-1]}). Bórrela de la pizarra.')
-                        else:
-                            print('No se detectó que el robot haya dibujado alguna línea.')
-                    else:
-                        print('Se detectaron interferencias sobre la pizarra...')
+                    #     else:
+                    #         print('No se detectó que el robot haya dibujado alguna línea.')
+                    # else:
+                    #     print('Se detectaron interferencias sobre la pizarra...')
 
             # Print the score in the terminal
             self.show_score()
