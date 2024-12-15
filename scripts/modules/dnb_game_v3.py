@@ -967,12 +967,12 @@ class DnbGame():
         print('\n------------------------------------------')
         print('Que comience el juego...')
 
-        self.talk("Que comience el juego...")
+        self.talk("¡Todo está listo, comienza la partida!")
         
         if self.firstPlayer == 0:
-            self.talk(f"{self.playerName} arranca")
+            self.talk(f"{self.playerName} arranca.")
         else:
-            self.talk("El robot arranca")
+            self.talk("El robot arranca.")
 
         # Continue the loop as long as the game isn't over
         while not self.has_finished():
@@ -989,7 +989,7 @@ class DnbGame():
             if currentPlayer == self.players[0]:
                 print(f'\nTurno de {currentPlayer}.')
 
-                self.talk("Tu turno")
+                self.talk("Tu turno.")
                 
                 # Continue running this while loop until a line drawn by the player is detected
                 while runningLoop == True:
@@ -1123,7 +1123,7 @@ class DnbGame():
             print('----------------------------------------')
             print('La partida terminó.\n')
 
-            self.talk("La partida terminó")
+            self.talk("La partida ha finalizado.")
 
             # Get individual scores
             scorePlayer = self.gameDnbpyLib.get_score(self.players[0])
@@ -1134,13 +1134,13 @@ class DnbGame():
 
             if scorePlayer > scoreRobot:
                 print(f'¡Felicitaciones {self.players[0]}, eres el ganador!')
-                self.talk(f"Felicidades {self.playerName}, eres el ganador. Ha sido una victoria épica como la de Madrid")
+                self.talk(f"Felicidades {self.playerName}, eres el ganador. Ha sido una victoria épica como la de Madrid.")
             elif scoreRobot > scorePlayer:
                 print(f'Ganó el robot... La humanidad está perdida...')
-                self.talk("Ganó el robot............. muuuaaajjajajajajaja")
+                self.talk("El robot ha ganado la partida............. muuuaaajjajajajajaja.")
             elif scoreRobot == scorePlayer:
                 print('¡Es un empate!')
-                self.talk("Ha sido un empate, bien jugado")
+                self.talk("Ha sido un empate, bien jugado.")
 
     def show_score(self):
         print(f'\n{self.players[0]}: {self.gameDnbpyLib.get_score(self.players[0])}, {self.players[1]}: {self.gameDnbpyLib.get_score(self.players[1])}')

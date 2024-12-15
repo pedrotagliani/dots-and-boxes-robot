@@ -1,10 +1,10 @@
 import serial
 
-from inverse_kinematics import inverse_kinematics
-from forward_kinematics import forward_kinematics
+# from inverse_kinematics import inverse_kinematics
+# from forward_kinematics import forward_kinematics
 
-# from modules.inverse_kinematics import inverse_kinematics
-# from modules.forward_kinematics import forward_kinematics
+from modules.inverse_kinematics import inverse_kinematics
+from modules.forward_kinematics import forward_kinematics
 
 from math import radians
 import numpy as np
