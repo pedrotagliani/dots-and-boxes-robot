@@ -1,11 +1,12 @@
 import cv2
 import dnbpy
 from modules import utils
-import pickle
 import numpy as np
 import keyboard
 from modules import open_loop_traj_control
 from time import sleep
+import pyttsx3
+import threading
 
 class DnbGame():
     # boardDotSize (tuple) --> (dotsWidth, dotsHeight)
@@ -114,6 +115,19 @@ class DnbGame():
 
         self.averageTcpMatrixTransformed = None
         self.transformationMatrix = None
+
+        # Initialize pyttsx3 engine
+        self.engine = pyttsx3.init()
+
+        # Configure the voice
+        self.engine.setProperty('rate', 140) # Setting up new voice rate
+        self.engine.setProperty('volume',1.0) # Setting up volume level (between 0 and 1)
+        voices = self.engine.getProperty('voices')
+        self.engine.setProperty('voice', voices[0].id)   # Changing index, changes voices
+
+        # This score will be updated with the built-in score from the dndby library
+        self.playerScore = 0
+        self.robotScore = 0
 
     def has_finished(self):
         return self.gameDnbpyLib.is_finished() # return True or False
@@ -944,10 +958,21 @@ class DnbGame():
 
         return diffFrameError <= self.AcceptedDiffFrameError
 
+    def talk(self, text):
+        self.engine.say(text)
+        self.engine.runAndWait()
+
     def play(self):
 
         print('\n------------------------------------------')
         print('Que comience el juego...')
+
+        self.talk("Que comience el juego...")
+        
+        if self.firstPlayer == 0:
+            self.talk(f"{self.playerName} arranca")
+        else:
+            self.talk("El robot arranca")
 
         # Continue the loop as long as the game isn't over
         while not self.has_finished():
@@ -963,6 +988,8 @@ class DnbGame():
             # If the player makes the move...
             if currentPlayer == self.players[0]:
                 print(f'\nTurno de {currentPlayer}.')
+
+                self.talk("Tu turno")
                 
                 # Continue running this while loop until a line drawn by the player is detected
                 while runningLoop == True:
@@ -995,6 +1022,8 @@ class DnbGame():
                             self.gameDnbpyLib.select_edge(playerMove, currentPlayer)
 
                             print(f'Movimiento de {self.players[0]}: {playerMove}.')
+
+                            # self.talk("Detectada")
                             
                             # The camera increases the brightness significantly after a sudden change (e.g., when I remove my hand from the camera after drawing a line)
                             # Therefore, it is advisable to wait a few seconds to allow the camera to stabilize again and then take another frame
@@ -1094,6 +1123,8 @@ class DnbGame():
             print('----------------------------------------')
             print('La partida terminó.\n')
 
+            self.talk("La partida terminó")
+
             # Get individual scores
             scorePlayer = self.gameDnbpyLib.get_score(self.players[0])
             scoreRobot = self.gameDnbpyLib.get_score(self.players[1])
@@ -1103,28 +1134,24 @@ class DnbGame():
 
             if scorePlayer > scoreRobot:
                 print(f'¡Felicitaciones {self.players[0]}, eres el ganador!')
+                self.talk(f"Felicidades {self.playerName}, eres el ganador. Ha sido una victoria épica como la de Madrid")
             elif scoreRobot > scorePlayer:
                 print(f'Ganó el robot... La humanidad está perdida...')
+                self.talk("Ganó el robot............. muuuaaajjajajajajaja")
             elif scoreRobot == scorePlayer:
                 print('¡Es un empate!')
+                self.talk("Ha sido un empate, bien jugado")
 
     def show_score(self):
         print(f'\n{self.players[0]}: {self.gameDnbpyLib.get_score(self.players[0])}, {self.players[1]}: {self.gameDnbpyLib.get_score(self.players[1])}')
 
+        if (self.playerScore < self.gameDnbpyLib.get_score(self.players[0])) or (self.robotScore < self.gameDnbpyLib.get_score(self.players[1])):
+            
+            self.talk(f"{self.gameDnbpyLib.get_score(self.players[0])} a {self.gameDnbpyLib.get_score(self.players[1])}")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+            # Update scores
+            self.playerScore = self.gameDnbpyLib.get_score(self.players[0])
+            self.robotScore = self.gameDnbpyLib.get_score(self.players[1])
 
 if __name__ == '__main__':
     pass

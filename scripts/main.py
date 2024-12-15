@@ -1,5 +1,5 @@
 # Import libraries
-from modules import camera, dnb_game_v2
+from modules import camera, dnb_game_v3
 # from modules import camera, dnb_game
 
 # Capture webcam
@@ -25,47 +25,67 @@ frameHeight = int(cap.frameHeight)
 # print(frameWidth)
 # print(frameHeight)
 
+keepPlaying = True
+
 # Start the game
-print('\n¡Hola! Ingresá tu nombre:')
-playerName = input('>> ')
+print("\n¡Hola! Ingresá tu nombre:")
+playerName = input(">> ")
 
-if len(playerName) > 0:
+if len(playerName) > 0 and len(playerName) < 30:
 
-    print(f"\n ¡Perfecto, {playerName}!")
+    while keepPlaying:
 
-    # The game has started...
+        print(f"\n ¡Perfecto, {playerName}!")
 
-    # Create a new game instance
-    game = dnb_game_v2.DnbGame(boardDotSize = boardDotSize, playerName = playerName, difficulty = difficulty, 
-                            distanceBetweenDots = distanceBetweenDots, markerSizeInCM = markerSizeInCM, 
-                            camera = cap, firstPlayer = firstPlayer)
+        # The game has started...
 
-    # Check the physical setup (manual configuration)
-    game.check_setup()
+        # Create a new game instance
+        game = dnb_game_v3.DnbGame(boardDotSize = boardDotSize, playerName = playerName, difficulty = difficulty, 
+                                distanceBetweenDots = distanceBetweenDots, markerSizeInCM = markerSizeInCM, 
+                                camera = cap, firstPlayer = firstPlayer)
 
-    game.check_board_detection()
+        # Check the physical setup (manual configuration)
+        game.check_setup()
 
-    # Check if the board is empty
-    game.is_whiteboard_empty()
+        game.check_board_detection()
 
-    # Just play
-    game.play()
+        # Check if the board is empty
+        game.is_whiteboard_empty()
 
-    # May be useful for debugging with dnb_game
-    # Continue the loop as long as the game isn't over
-    # while not game.has_finished():
+        # Just play
+        game.play()
 
-    #     # Detect the board
-    #     averageTcpMatrixTransformed, boardFrame = game.detect_board()
+        # May be useful for debugging with dnb_game
+        # Continue the loop as long as the game isn't over
+        # while not game.has_finished():
 
-    #     # Detect lines
-    #     detectedLinesList, newLineDetected = game.detect_lines(averageTcpMatrixTransformed, boardFrame)
+        #     # Detect the board
+        #     averageTcpMatrixTransformed, boardFrame = game.detect_board()
 
-    #     # print(detectedLinesList)
-    #     # print(newLineDetected)
-    #     # print('-------')
+        #     # Detect lines
+        #     detectedLinesList, newLineDetected = game.detect_lines(averageTcpMatrixTransformed, boardFrame)
+
+        #     # print(detectedLinesList)
+        #     # print(newLineDetected)
+        #     # print('-------')
+
+        print("\n¿Querés jugar otra partida? Ingresá 'si' o 'no'")
+        decision = input(">> ")
+
+        if decision == 'si':
+            print("\nIniciando nueva partida...")
+            keepPlaying = True
+        elif decision == 'no':
+            print("\nFinalizando programa...")
+            keepPlaying = False
+        else:
+            print("\nLa opción ingresada no es válida... Finalizando programa...")
+            keepPlaying = False
     
 else:
-    print(f'No ingresaste ningún nombre...')
+    if len(playerName) == 0:
+        print("No ingresaste ningún nombre...")
+    else:
+        print("El nombre que ingresaste es demasiado largo. Máximo se permiten 30 caracteres.")
 
 cap.release_camera()
