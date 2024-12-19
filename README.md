@@ -10,7 +10,7 @@ El proyecto consiste en el desarrollo de un brazo robótico de cuatro grados de 
 
 El diseño mecánico del brazo robótico se centró en garantizar precisión y estabilidad para las tareas requeridas. Los principales componentes son:
 
-1. **Articulaciones**:
+1. **Articulaciones del brazo**:
    - **Base**: Soporta el brazo y aloja los componentes electrónicos. Incluye un soporte para el motor paso a paso y puntos de fijación para garantizar la estabilidad. Además, se incorporó una crapodina para disminuir el rozamiento y mejorar la fijación del motor.
    - **Hombro y codo**: Incorporan soportes para servomotores MG996R, espacios para encoders y soportes para resortes que reducen la carga sobre los motores.
    - **Gripper**: Diseñado para manejar un marcador (fibrón), incluye un sistema deslizante y un resorte amortiguador para asegurar un contacto adecuado con la superficie de dibujo.
