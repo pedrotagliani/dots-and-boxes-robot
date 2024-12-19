@@ -1,3 +1,5 @@
+<img src="https://github.com/pedrotagliani/dots-and-boxes-robot/blob/main/Images/FI%20UNLZ%20Logo.jpg" alt="FI UNLZ"/>
+
 <h1 align="center">D&B Robot</h1>
 
 <p>
