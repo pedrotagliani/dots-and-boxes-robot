@@ -52,7 +52,7 @@ El sistema eléctrico asegura el funcionamiento coordinado de motores, sensores 
 
 El diseño eléctrico es robusto y escalable, permitiendo ajustes futuros según las necesidades del sistema.
 
-
+<img src="https://github.com/pedrotagliani/dots-and-boxes-robot/blob/main/Images/Esquema%20Brazo%20Robot.png" alt="Esquema de conexión del robot"/>
 
 
 
