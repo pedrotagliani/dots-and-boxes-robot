@@ -6,6 +6,10 @@
 El proyecto consiste en el desarrollo de un brazo robótico de cuatro grados de libertad diseñado para competir contra un oponente humano en el juego de lápiz y papel "Puntos y Cajas". Utiliza visión artificial con marcadores ArUco, algoritmos de inteligencia artificial para estrategias de juego, y un sistema de control para mover el brazo de forma precisa. El robot puede identificar líneas dibujadas por el jugador, analizar el estado del tablero y realizar movimientos autónomos utilizando un marcador integrado en su gripper.
 </p>
 
+## Integrantes
+- Daiana Belén Viscarra Hernández.
+- Pedro Tagliani.
+
 ---
 
 ## Diseño mecánico
