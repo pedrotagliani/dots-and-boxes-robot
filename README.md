@@ -23,9 +23,9 @@ El diseño mecánico del brazo robótico se centró en garantizar precisión y e
 
 ---
 
-## Diseño eléctrico
+## Diseño electrónico
 
-El sistema eléctrico asegura el funcionamiento coordinado de motores, sensores y el control del brazo. Los principales elementos son:
+El sistema electrónico asegura el funcionamiento coordinado de motores, sensores y el control del brazo. Los principales elementos son:
 
 1. **Fuente de Alimentación**:
    - Una fuente de 12V y 3A alimenta el sistema.
