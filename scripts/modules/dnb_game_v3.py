@@ -6,7 +6,6 @@ import keyboard
 from modules import open_loop_traj_control
 from time import sleep
 import pyttsx3
-import threading
 
 class DnbGame():
     # boardDotSize (tuple) --> (dotsWidth, dotsHeight)
